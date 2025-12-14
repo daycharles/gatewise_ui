@@ -1,0 +1,12 @@
+[
+    {
+        "uid": "123456789",
+        "name": "John Doe",
+        "isAdmin": true
+    },
+    {
+        "uid": "987654321",
+        "name": "Jane Smith",
+        "isAdmin": false
+    }
+]
