@@ -343,6 +343,8 @@ try:
     GPIO_AVAILABLE = True
 except (ImportError, RuntimeError):
     GPIO_AVAILABLE = False
+    # Set GPIO to None so hasattr/getattr checks work correctly
+    # Code should always check GPIO_AVAILABLE before using GPIO
     GPIO = None
 
 

@@ -160,14 +160,10 @@ class GateWiseUI(QWidget):
 
         self.setStyleSheet(f"background-color: {self.primary_color}; color: white;")
         
-        # Initialize garage controller
-        self.garage_controller = get_garage_controller()
-        self.garage_controller.set_button_callback(self.on_physical_garage_button)
-        
         # Admin password from environment variable
         self.admin_password = os.environ.get("GATEWISE_ADMIN_PASSWORD", "admin")
 
-        # Initialize garage controller if enabled
+        # Initialize garage controller based on config
         self.garage_controller = None
         if self.config.garage_enabled:
             try:
@@ -176,6 +172,14 @@ class GateWiseUI(QWidget):
                 print("[UI] Garage controller initialized")
             except Exception as e:
                 print(f"[UI ERROR] Failed to initialize garage controller: {e}")
+        else:
+            # Use simpler GarageController for basic functionality
+            try:
+                self.garage_controller = get_garage_controller()
+                if self.garage_controller and self.garage_controller.enabled:
+                    self.garage_controller.set_button_callback(self.on_physical_garage_button)
+            except Exception as e:
+                print(f"[UI WARNING] Basic garage controller unavailable: {e}")
 
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
