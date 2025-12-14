@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import threading
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
@@ -9,13 +10,23 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QTime
-from mfrc522 import SimpleMFRC522
 from core.config import get_config
 
 # Load configuration
 config = get_config()
 
-reader = SimpleMFRC522()
+# Try to import RFID reader, use mock if not available
+reader = None
+if config.rfid_enabled:
+    try:
+        from mfrc522 import SimpleMFRC522
+        reader = SimpleMFRC522()
+        print("[INFO] RFID reader initialized")
+    except ImportError:
+        print("[WARNING] mfrc522 library not available, RFID features disabled")
+    except Exception as e:
+        print(f"[WARNING] Failed to initialize RFID reader: {e}")
+
 DOOR_MODULE_IPS = config.door_module_ips
 DOOR_MODULE_PORT = config.door_module_port
 
@@ -74,6 +85,9 @@ class UserDialog(QDialog):
         thread.start()
 
     def _read_uid(self):
+        if reader is None:
+            QMessageBox.warning(self, "RFID Error", "RFID reader not available")
+            return
         try:
             uid, _ = reader.read()
             self.uid_input.setText(str(uid))
