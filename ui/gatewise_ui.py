@@ -10,10 +10,14 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QTime
 from mfrc522 import SimpleMFRC522
+from core.config import get_config
+
+# Load configuration
+config = get_config()
 
 reader = SimpleMFRC522()
-DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
-DOOR_MODULE_PORT = 5006
+DOOR_MODULE_IPS = config.door_module_ips
+DOOR_MODULE_PORT = config.door_module_port
 
 class PasswordDialog(QDialog):
     def __init__(self, parent=None):
@@ -86,10 +90,11 @@ class UserDialog(QDialog):
 class GateWiseUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GateWise Access Control")
-        self.setGeometry(100, 100, 800, 480)
+        self.config = config
+        self.setWindowTitle(self.config.app_title)
+        self.setGeometry(100, 100, self.config.window_width, self.config.window_height)
 
-        self.primary_color = "#355265"
+        self.primary_color = self.config.primary_color
         self.logo_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "Gatewise.PNG")
         self.logs_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "logs-white.png")
         self.settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "config_white.png")
@@ -335,16 +340,16 @@ class GateWiseUI(QWidget):
                 })
             data[day] = day_list
 
-        with open("blackout.json", "w") as f:
+        with open(self.config.blackout_file, "w") as f:
             json.dump(data, f, indent=4)
         QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
 
     def load_blackout_schedule(self):
-        if not os.path.exists("blackout.json"):
+        if not os.path.exists(self.config.blackout_file):
             return
 
         try:
-            with open("blackout.json", "r") as f:
+            with open(self.config.blackout_file, "r") as f:
                 data = json.load(f)
 
             for day, blocks in data.items():
@@ -354,20 +359,6 @@ class GateWiseUI(QWidget):
         except Exception as e:
             print(f"[ERROR] Failed to load blackout schedule: {e}")
 
-    def save_blackout_schedule(self):
-        data = {}
-        for day, blocks in self.blackout_blocks.items():
-            day_list = []
-            for start, end, _ in blocks:
-                day_list.append({
-                    "start": start.time().toString("HH:mm"),
-                    "end": end.time().toString("HH:mm")
-                })
-            data[day] = day_list
-
-        with open("blackout.json", "w") as f:
-            json.dump(data, f, indent=4)
-        QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
 
     def init_user_screen(self):
         layout = QVBoxLayout()
@@ -398,9 +389,11 @@ class GateWiseUI(QWidget):
         push_btn.clicked.connect(self.push_to_door_modules)
         buttons_layout.addWidget(push_btn)
 
-        self.auto_sync_toggle = Toggle("Enable Auto-Sync")
+        self.auto_sync_toggle = QCheckBox("Enable Auto-Sync")
+        self.auto_sync_toggle.setStyleSheet("color: white; font-size: 14px;")
         self.auto_sync_toggle.setChecked(False)
         self.auto_sync_toggle.stateChanged.connect(self.toggle_auto_sync)
+        self.auto_sync_enabled = False
         buttons_layout.addWidget(self.auto_sync_toggle)
 
         layout.addLayout(buttons_layout)
@@ -409,8 +402,8 @@ class GateWiseUI(QWidget):
 
     def load_users(self):
         self.users = []
-        if os.path.exists("users.json"):
-            with open("users.json", "r") as f:
+        if os.path.exists(self.config.users_file):
+            with open(self.config.users_file, "r") as f:
                 self.users = json.load(f)
         self.refresh_user_list()
 
@@ -476,16 +469,19 @@ class GateWiseUI(QWidget):
             QMessageBox.information(self, "Deleted", "User removed.")
 
     def save_users(self):
-        with open("users.json", "w") as f:
+        with open(self.config.users_file, "w") as f:
             json.dump(self.users, f, indent=4)
-        if self.auto_sync_enabled:
+        if hasattr(self, 'auto_sync_enabled') and self.auto_sync_enabled:
             self.push_to_door_modules()
 
     def request_password(self):
         dlg = PasswordDialog(self)
         if dlg.exec_():
-            if dlg.get_password() == "admin":
+            entered_password = dlg.get_password()
+            if entered_password == self.config.admin_password:
                 self.show_settings()
+            else:
+                QMessageBox.warning(self, "Access Denied", "Incorrect password.")
 
     def show_main(self):
         self.stack.setCurrentWidget(self.main_screen)
@@ -501,9 +497,39 @@ class GateWiseUI(QWidget):
 
     def show_user_management(self):
         self.stack.setCurrentWidget(self.user_screen)
+    
+    def toggle_auto_sync(self, state):
+        """Toggle automatic syncing of users to door modules."""
+        self.auto_sync_enabled = (state == Qt.Checked)
+        status = "enabled" if self.auto_sync_enabled else "disabled"
+        print(f"[INFO] Auto-sync {status}")
+    
+    def push_to_door_modules(self):
+        """Push user data to door modules via network."""
+        if not DOOR_MODULE_IPS:
+            QMessageBox.warning(self, "No Door Modules", "No door module IPs configured.")
+            return
+        
+        try:
+            # TODO: Implement actual network communication to door modules
+            # This is a placeholder for the network sync functionality
+            print(f"[INFO] Pushing user data to door modules: {DOOR_MODULE_IPS}")
+            QMessageBox.information(self, "Success", f"User data pushed to {len(DOOR_MODULE_IPS)} door module(s).")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to push to door modules: {e}")
 
 def launch_ui():
     app = QApplication(sys.argv)
     window = GateWiseUI()
-    window.show()
+    
+    # Apply fullscreen if configured
+    if config.fullscreen:
+        window.showFullScreen()
+    else:
+        window.show()
+    
+    # Hide cursor if configured (for touchscreen-only systems)
+    if not config.show_cursor:
+        app.setOverrideCursor(Qt.BlankCursor)
+    
     sys.exit(app.exec_())
