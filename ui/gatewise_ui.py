@@ -195,7 +195,6 @@ class GateWiseUI(QWidget):
         self.init_user_screen()
         if self.config.garage_enabled:
             self.init_garage_screen()
-        self.init_garage_screen()
 
         self.stack.addWidget(self.main_screen)
         self.stack.addWidget(self.settings_screen)
@@ -204,7 +203,6 @@ class GateWiseUI(QWidget):
         self.stack.addWidget(self.user_screen)
         if self.config.garage_enabled:
             self.stack.addWidget(self.garage_screen)
-        self.stack.addWidget(self.garage_screen)
 
         main_layout.addWidget(self.stack)
         main_layout.addLayout(self.init_action_bar())
@@ -278,11 +276,6 @@ class GateWiseUI(QWidget):
         lock_btn.setIconSize(QSize(32, 32))
         lock_btn.clicked.connect(self.lock_door)
 
-        class_btn = QPushButton()
-        if os.path.exists(self.class_icon_path):
-            class_btn.setIcon(QIcon(self.class_icon_path))
-        class_btn.setIconSize(QSize(48, 48))
-        class_btn.setToolTip("Timed Unlock")  # Updated from "Unlock for Class"
         garage_btn = QPushButton("Garage")
         garage_btn.setIcon(QIcon(self.settings_icon_path))  # Reuse settings icon for garage
         garage_btn.setIconSize(QSize(32, 32))
@@ -386,7 +379,7 @@ class GateWiseUI(QWidget):
 
         back_btn = QPushButton("Back")
         back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 16px; padding: 10px;")
-        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.blackout_screen))
+        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_screen))
         layout.addWidget(back_btn)
 
         self.load_blackout_schedule()
@@ -445,6 +438,8 @@ class GateWiseUI(QWidget):
         with open(self.config.blackout_file, "w") as f:
             json.dump(data, f, indent=4)
         QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
+        # Navigate back to settings screen after saving
+        self.stack.setCurrentWidget(self.settings_screen)
 
     def load_blackout_schedule(self):
         if not os.path.exists(self.config.blackout_file):
@@ -759,7 +754,6 @@ class GateWiseUI(QWidget):
         if dlg.exec_():
             entered_password = dlg.get_password()
             if entered_password == self.config.admin_password:
-            if dlg.get_password() == self.admin_password:
                 self.show_settings()
             else:
                 QMessageBox.warning(self, "Access Denied", "Incorrect password.")
@@ -779,98 +773,6 @@ class GateWiseUI(QWidget):
     def show_user_management(self):
         self.stack.setCurrentWidget(self.user_screen)
     
-    def closeEvent(self, event):
-        """Handle window close event - clean up resources."""
-        print("[UI] Closing application...")
-        if self.garage_controller:
-            self.garage_controller.cleanup()
-        event.accept()
-    
-    def toggle_auto_sync(self, state):
-        """Toggle automatic syncing of users to door modules."""
-        self.auto_sync_enabled = (state == Qt.Checked)
-        status = "enabled" if self.auto_sync_enabled else "disabled"
-        print(f"[INFO] Auto-sync {status}")
-    
-    def push_to_door_modules(self):
-        """Push user data to door modules via network."""
-        if not DOOR_MODULE_IPS:
-            QMessageBox.warning(self, "No Door Modules", "No door module IPs configured.")
-            return
-        
-        try:
-            # TODO: Implement actual network communication to door modules
-            # This is a placeholder for the network sync functionality
-            print(f"[INFO] Pushing user data to door modules: {DOOR_MODULE_IPS}")
-            QMessageBox.information(self, "Success", f"User data pushed to {len(DOOR_MODULE_IPS)} door module(s).")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to push to door modules: {e}")
-    def show_garage(self):
-        self.stack.setCurrentWidget(self.garage_screen)
-    
-    def init_garage_screen(self):
-        """Initialize garage control screen."""
-        layout = QVBoxLayout()
-        self.garage_screen.setLayout(layout)
-        
-        title = QLabel("Garage Door Control")
-        title.setFont(QFont("Arial", 16))
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-        
-        # Status label
-        status_text = "Garage control enabled" if self.garage_controller.is_enabled() else "Garage control disabled (GPIO not available)"
-        self.garage_status_label = QLabel(status_text)
-        self.garage_status_label.setFont(QFont("Arial", 14))
-        self.garage_status_label.setAlignment(Qt.AlignCenter)
-        self.garage_status_label.setStyleSheet("padding: 20px; background-color: #34495e; border-radius: 10px; margin: 10px;")
-        layout.addWidget(self.garage_status_label)
-        
-        # Trigger button
-        trigger_btn = QPushButton("Trigger Garage Door")
-        trigger_btn.setStyleSheet("background-color: #e74c3c; color: white; font-size: 18px; padding: 20px; border-radius: 10px; margin: 20px;")
-        trigger_btn.clicked.connect(self.trigger_garage_door)
-        trigger_btn.setEnabled(self.garage_controller.is_enabled())
-        layout.addWidget(trigger_btn)
-        
-        # Info text
-        info_label = QLabel("Press the button above to trigger the garage door.\nThe system will send a brief pulse to the relay.")
-        info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet("padding: 10px; color: #bdc3c7;")
-        layout.addWidget(info_label)
-        
-        layout.addStretch()
-        
-        # Back button
-        back_btn = QPushButton("Back")
-        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_screen))
-        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
-        layout.addWidget(back_btn)
-    
-    def trigger_garage_door(self):
-        """Trigger the garage door opener."""
-        reply = QMessageBox.question(
-            self,
-            "Confirm Garage Action",
-            "Are you sure you want to trigger the garage door?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply == QMessageBox.Yes:
-            def on_complete(success):
-                if success:
-                    QMessageBox.information(self, "Success", "Garage door triggered successfully.")
-                else:
-                    QMessageBox.warning(self, "Error", "Failed to trigger garage door.")
-            
-            self.garage_controller.trigger_door_async(callback=on_complete)
-    
-    def on_physical_garage_button(self):
-        """Handle physical garage button press."""
-        print("[INFO] Physical garage button pressed - triggering door")
-        self.garage_controller.trigger_door()
-    
     def unlock_door(self):
         """Unlock door action."""
         print("[INFO] Unlock door triggered")
@@ -881,15 +783,18 @@ class GateWiseUI(QWidget):
         print("[INFO] Lock door triggered")
         QMessageBox.information(self, "Door Action", "Door locked")
     
-    def push_to_door_modules(self):
-        """Push user data to door modules."""
-        print("[INFO] Pushing user data to door modules")
-        QMessageBox.information(self, "Sync", "User data pushed to door modules")
+    def on_physical_garage_button(self):
+        """Handle physical garage button press."""
+        print("[INFO] Physical garage button pressed - triggering door")
+        if self.garage_controller:
+            self.garage_controller.trigger_door()
     
-    def toggle_auto_sync(self, state):
-        """Toggle auto-sync feature."""
-        self.auto_sync_enabled = bool(state)
-        print(f"[INFO] Auto-sync {'enabled' if self.auto_sync_enabled else 'disabled'}")
+    def closeEvent(self, event):
+        """Handle window close event - clean up resources."""
+        print("[UI] Closing application...")
+        if self.garage_controller:
+            self.garage_controller.cleanup()
+        event.accept()
 
 
 def launch_ui():
