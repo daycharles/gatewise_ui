@@ -335,20 +335,7 @@ class GarageDoorController:
         """Context manager exit - ensures cleanup."""
         self.cleanup()
         return False
-Garage Door Control Module
 
-Provides GPIO control for garage door relay and physical button monitoring.
-Designed for Raspberry Pi with relay module for triggering garage door opener.
-
-Safety features:
-- Momentary pulse activation (default 250ms)
-- Debounce on physical button input
-- Optional door state sensor support
-"""
-
-import os
-import time
-import threading
 
 # Try to import GPIO library - will fail on non-Raspberry Pi systems
 try:
@@ -356,7 +343,9 @@ try:
     GPIO_AVAILABLE = True
 except (ImportError, RuntimeError):
     GPIO_AVAILABLE = False
-    print("[WARNING] RPi.GPIO not available. Garage control will be disabled.")
+    # Set GPIO to None so hasattr/getattr checks work correctly
+    # Code should always check GPIO_AVAILABLE before using GPIO
+    GPIO = None
 
 
 class GarageController:
