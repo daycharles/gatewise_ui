@@ -43,13 +43,16 @@ def test_admin_password_from_env():
     from PyQt5.QtWidgets import QApplication
     from ui.gatewise_ui import GateWiseUI
     
-    app = QApplication(sys.argv)
+    # Get existing app or create new one
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+    
     window = GateWiseUI()
     
     # Check that password is loaded from environment
     assert window.admin_password == 'test_password_123'
     
-    app.quit()
     print("✓ Admin password from environment test passed")
 
 
@@ -75,7 +78,11 @@ def test_user_persistence():
     os.chdir(temp_dir)
     
     try:
-        app = QApplication(sys.argv)
+        # Get existing app or create new one
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+        
         window = GateWiseUI()
         
         # Add a test user
@@ -98,7 +105,6 @@ def test_user_persistence():
         assert loaded_users[0]["uid"] == "123456"
         assert loaded_users[0]["name"] == "Test User"
         
-        app.quit()
         print("✓ User persistence test passed")
     
     finally:
@@ -111,7 +117,11 @@ def test_ui_initialization():
     from PyQt5.QtWidgets import QApplication
     from ui.gatewise_ui import GateWiseUI
     
-    app = QApplication(sys.argv)
+    # Get existing app or create new one
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+    
     window = GateWiseUI()
     
     # Check that all screens are initialized
@@ -125,7 +135,6 @@ def test_ui_initialization():
     # Check that garage controller is initialized
     assert window.garage_controller is not None
     
-    app.quit()
     print("✓ UI initialization test passed")
 
 

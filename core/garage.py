@@ -35,9 +35,25 @@ class GarageController:
     
     def __init__(self):
         self.enabled = GPIO_AVAILABLE
-        self.relay_pin = int(os.environ.get('GARAGE_RELAY_PIN', '17'))
-        self.button_pin = int(os.environ.get('GARAGE_BUTTON_PIN', '27'))
-        self.pulse_duration = int(os.environ.get('GARAGE_PULSE_MS', '250')) / 1000.0
+        
+        # Parse GPIO pins with validation
+        try:
+            self.relay_pin = int(os.environ.get('GARAGE_RELAY_PIN', '17'))
+        except ValueError:
+            print("[WARNING] Invalid GARAGE_RELAY_PIN value, using default 17")
+            self.relay_pin = 17
+        
+        try:
+            self.button_pin = int(os.environ.get('GARAGE_BUTTON_PIN', '27'))
+        except ValueError:
+            print("[WARNING] Invalid GARAGE_BUTTON_PIN value, using default 27")
+            self.button_pin = 27
+        
+        try:
+            self.pulse_duration = int(os.environ.get('GARAGE_PULSE_MS', '250')) / 1000.0
+        except ValueError:
+            print("[WARNING] Invalid GARAGE_PULSE_MS value, using default 250ms")
+            self.pulse_duration = 0.25
         
         self.button_callback = None
         self.last_button_press = 0

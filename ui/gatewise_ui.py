@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import threading
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
@@ -80,7 +81,6 @@ class UserDialog(QDialog):
             QMessageBox.warning(self, "RFID Not Available", "RFID scanning is not available on this system.")
             return
         self.uid_input.setPlaceholderText("Waiting for scan...")
-        import threading
         thread = threading.Thread(target=self._read_uid, daemon=True)
         thread.start()
 
