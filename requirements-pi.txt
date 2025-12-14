@@ -1,0 +1,8 @@
+# Pi-specific requirements: exclude PyQt5 (installed via apt)
+# Install these into the venv after creating it with --system-site-packages
+mfrc522
+spidev
+RPi.GPIO
+gpiozero
+pytest
+

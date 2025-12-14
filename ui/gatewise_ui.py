@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import threading
+import socket
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
@@ -26,6 +27,23 @@ from core.garage import get_garage_controller
 
 DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
 DOOR_MODULE_PORT = 5006
+
+
+class Toggle(QCheckBox):
+    """Simple Toggle control implemented as a styled QCheckBox.
+
+    Keeps the `stateChanged` signal API used by the rest of the UI.
+    """
+    def __init__(self, label="", parent=None):
+        super().__init__(label, parent)
+        # Basic visual styling; keep small and self-contained so tests/dev UI render.
+        self.setStyleSheet(
+            "QCheckBox { color: white; font-size: 14px; }"
+            "QCheckBox::indicator { width: 44px; height: 24px; border-radius: 12px; }"
+            "QCheckBox::indicator:unchecked { background: #7f8c8d; }"
+            "QCheckBox::indicator:checked { background: #27ae60; }"
+        )
+
 
 class PasswordDialog(QDialog):
     def __init__(self, parent=None):
@@ -497,8 +515,43 @@ class GateWiseUI(QWidget):
     def save_users(self):
         with open("users.json", "w") as f:
             json.dump(self.users, f, indent=4)
-        if self.auto_sync_enabled:
+        if getattr(self, "auto_sync_enabled", False):
+            # trigger a non-blocking push so GUI stays responsive
             self.push_to_door_modules()
+
+    def toggle_auto_sync(self, state):
+        """Enable/disable automatic syncing when user lists change."""
+        self.auto_sync_enabled = bool(state)
+
+    def push_to_door_modules(self):
+        """Send the current `self.users` to each door module.
+
+        This call is non-blocking: it spawns a background thread to perform network I/O.
+        The payload is JSON: {"users": [...]}
+        """
+        users_payload = {
+            "users": self.users
+        }
+
+        def _worker(payload, hosts, port):
+            data = json.dumps(payload).encode("utf-8")
+            for host in hosts:
+                try:
+                    with socket.create_connection((host, port), timeout=5) as s:
+                        s.sendall(data)
+                        # optional small ACK read (non-blocking, best-effort)
+                        try:
+                            s.settimeout(1.0)
+                            _ = s.recv(1024)
+                        except Exception:
+                            pass
+                    print(f"[INFO] Pushed users to {host}:{port}")
+                except Exception as e:
+                    print(f"[WARN] Failed to push to {host}:{port} - {e}")
+
+        hosts = DOOR_MODULE_IPS.copy()
+        t = threading.Thread(target=_worker, args=(users_payload, hosts, DOOR_MODULE_PORT), daemon=True)
+        t.start()
 
     def request_password(self):
         dlg = PasswordDialog(self)
