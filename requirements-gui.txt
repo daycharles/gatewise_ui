@@ -1,0 +1,12 @@
+# GUI-specific requirements
+# Use this when you want to enable a GUI (Kivy or PyQt).
+# Kivy: preferred modern UI (may require platform-specific wheels). Install only where supported.
+kivy==2.1.0
+
+# Legacy PyQt UI (fallback): uncomment if you want to use PyQt instead
+# PyQt5==5.15.9
+
+# Optional: additional GUI helpers
+# kivy.deps.sdl2
+# kivy.deps.glew
+

@@ -1,5 +1,6 @@
-# Use Kivy for a lighter cross-platform GUI; on Raspberry Pi prefer apt packages for system PyQt or Kivy wheels
-kivy==2.1.0
+# Base requirements (non-GUI). For optional GUI support see requirements-gui.txt
+# This default file avoids attempting to build heavy GUI wheels (like Kivy) during a standard pip install.
+
 mfrc522>=0.0.7
 spidev
 RPi.GPIO
