@@ -1,0 +1,118 @@
+# GateWise UI Configuration Example
+# Copy this file to .env or set as environment variables
+
+# =============================================================================
+# SECURITY SETTINGS
+# =============================================================================
+
+# Admin password - CHANGE THIS IMMEDIATELY!
+# NEVER commit the actual .env file to version control
+GATEWISE_ADMIN_PASSWORD=your-strong-password-here
+
+# =============================================================================
+# GARAGE DOOR SETTINGS
+# =============================================================================
+
+# Enable garage door control (true/false)
+GARAGE_ENABLED=true
+
+# GPIO pin for relay control (BCM numbering)
+# Common pins: 17, 27, 22, 23, 24
+GARAGE_RELAY_PIN=17
+
+# Relay active low (true) or active high (false)
+# Most relay modules are active-low (triggered by LOW signal)
+GARAGE_RELAY_ACTIVE_LOW=true
+
+# Relay pulse duration in milliseconds
+# Typical garage openers need 100-1000ms pulse
+GARAGE_RELAY_PULSE_MS=500
+
+# GPIO pin for manual button input (BCM numbering)
+GARAGE_BUTTON_PIN=27
+
+# GPIO pin for door state sensor (optional, BCM numbering)
+# Leave empty to disable door state detection
+GARAGE_SENSOR_PIN=22
+
+# Sensor active high (true) or active low (false)
+# Reed switches are typically active-low (closed when door closed)
+GARAGE_SENSOR_ACTIVE_LOW=true
+
+# Auto-close garage door after this many seconds (0 = disabled)
+GARAGE_AUTO_CLOSE_SECONDS=0
+
+# =============================================================================
+# RFID READER SETTINGS
+# =============================================================================
+
+# Enable RFID reader (true/false)
+RFID_ENABLED=true
+
+# RFID reader type (currently only supports mfrc522)
+RFID_TYPE=mfrc522
+
+# =============================================================================
+# DOOR MODULE NETWORK SETTINGS
+# =============================================================================
+
+# Comma-separated list of door module IP addresses
+# Leave empty if not using network door modules
+DOOR_MODULE_IPS=192.168.0.51
+
+# Door module communication port
+DOOR_MODULE_PORT=5006
+
+# =============================================================================
+# APPLICATION SETTINGS
+# =============================================================================
+
+# Application title
+APP_TITLE=GateWise Home Access Control
+
+# Primary color (hex format)
+PRIMARY_COLOR=#355265
+
+# Enable debug logging (true/false)
+DEBUG_MODE=false
+
+# Log file path (relative to project root)
+LOG_FILE=gatewise.log
+
+# Log rotation: max file size in MB
+LOG_MAX_SIZE_MB=10
+
+# Log rotation: number of backup files to keep
+LOG_BACKUP_COUNT=5
+
+# =============================================================================
+# UI SETTINGS
+# =============================================================================
+
+# Window size (widthxheight)
+WINDOW_SIZE=800x480
+
+# Fullscreen mode (true/false) - useful for touchscreen kiosks
+FULLSCREEN=false
+
+# Show cursor (true/false) - hide for touchscreen-only systems
+SHOW_CURSOR=true
+
+# =============================================================================
+# DATA PERSISTENCE
+# =============================================================================
+
+# Path to users database file
+USERS_FILE=users.json
+
+# Path to blackout schedule file
+BLACKOUT_FILE=blackout.json
+
+# Path to garage state file
+GARAGE_STATE_FILE=garage_state.json
+
+# Auto-backup interval in hours (0 = disabled)
+AUTO_BACKUP_HOURS=24
+
+# Backup directory
+BACKUP_DIR=backups
