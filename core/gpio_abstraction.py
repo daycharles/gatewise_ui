@@ -255,7 +255,7 @@ def get_gpio(prefer_gpiozero: bool = False) -> GPIOInterface:
         with open('/proc/cpuinfo', 'r') as f:
             cpuinfo = f.read()
             is_pi = 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo
-    except:
+    except Exception:
         is_pi = False
     
     if not is_pi:
@@ -294,5 +294,5 @@ def is_raspberry_pi() -> bool:
         with open('/proc/cpuinfo', 'r') as f:
             cpuinfo = f.read()
             return 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo
-    except:
+    except Exception:
         return False

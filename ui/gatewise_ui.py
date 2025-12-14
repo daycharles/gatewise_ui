@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import threading
+from datetime import datetime
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
@@ -523,7 +524,6 @@ class GateWiseUI(QWidget):
 
         # Update last trigger time
         if self.garage_controller.last_trigger_time:
-            from datetime import datetime
             last_time = datetime.fromtimestamp(self.garage_controller.last_trigger_time)
             self.garage_last_trigger_label.setText(f"Last triggered: {last_time.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
@@ -654,7 +654,7 @@ class GateWiseUI(QWidget):
     def save_users(self):
         with open(self.config.users_file, "w") as f:
             json.dump(self.users, f, indent=4)
-        if hasattr(self, 'auto_sync_enabled') and self.auto_sync_enabled:
+        if self.auto_sync_enabled:
             self.push_to_door_modules()
 
     def request_password(self):
@@ -680,6 +680,13 @@ class GateWiseUI(QWidget):
 
     def show_user_management(self):
         self.stack.setCurrentWidget(self.user_screen)
+    
+    def closeEvent(self, event):
+        """Handle window close event - clean up resources."""
+        print("[UI] Closing application...")
+        if self.garage_controller:
+            self.garage_controller.cleanup()
+        event.accept()
     
     def toggle_auto_sync(self, state):
         """Toggle automatic syncing of users to door modules."""
