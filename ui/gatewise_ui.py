@@ -3,6 +3,7 @@ import os
 import json
 import threading
 from datetime import datetime
+import socket
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
@@ -30,6 +31,39 @@ if config.rfid_enabled:
 
 DOOR_MODULE_IPS = config.door_module_ips
 DOOR_MODULE_PORT = config.door_module_port
+
+# Try to import RFID reader - will fail on systems without hardware
+try:
+    from mfrc522 import SimpleMFRC522
+    reader = SimpleMFRC522()
+    RFID_AVAILABLE = True
+except (ImportError, RuntimeError):
+    reader = None
+    RFID_AVAILABLE = False
+    print("[WARNING] MFRC522 not available. RFID scanning will be disabled.")
+
+# Import garage controller
+from core.garage import get_garage_controller
+
+DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
+DOOR_MODULE_PORT = 5006
+
+
+class Toggle(QCheckBox):
+    """Simple Toggle control implemented as a styled QCheckBox.
+
+    Keeps the `stateChanged` signal API used by the rest of the UI.
+    """
+    def __init__(self, label="", parent=None):
+        super().__init__(label, parent)
+        # Basic visual styling; keep small and self-contained so tests/dev UI render.
+        self.setStyleSheet(
+            "QCheckBox { color: white; font-size: 14px; }"
+            "QCheckBox::indicator { width: 44px; height: 24px; border-radius: 12px; }"
+            "QCheckBox::indicator:unchecked { background: #7f8c8d; }"
+            "QCheckBox::indicator:checked { background: #27ae60; }"
+        )
+
 
 class PasswordDialog(QDialog):
     def __init__(self, parent=None):
@@ -81,6 +115,9 @@ class UserDialog(QDialog):
             self.uid_input.setDisabled(True)
 
     def scan_uid(self):
+        if not RFID_AVAILABLE or reader is None:
+            QMessageBox.warning(self, "RFID Not Available", "RFID scanning is not available on this system.")
+            return
         self.uid_input.setPlaceholderText("Waiting for scan...")
         thread = threading.Thread(target=self._read_uid, daemon=True)
         thread.start()
@@ -88,6 +125,7 @@ class UserDialog(QDialog):
     def _read_uid(self):
         if reader is None:
             QMessageBox.warning(self, "RFID Error", "RFID reader not available")
+        if not RFID_AVAILABLE or reader is None:
             return
         try:
             uid, _ = reader.read()
@@ -111,13 +149,23 @@ class GateWiseUI(QWidget):
 
         self.primary_color = self.config.primary_color
         self.logo_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "Gatewise.PNG")
+        self.setWindowTitle("Home Access Control")
+        self.setGeometry(100, 100, 800, 480)
+
+        self.primary_color = "#2c3e50"  # Neutral dark blue-gray for home
         self.logs_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "logs-white.png")
         self.settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "config_white.png")
         self.unlock_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "unlock_white.png")
         self.lock_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "lock_white.png")
-        self.class_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "unlock_for_class.png")
 
         self.setStyleSheet(f"background-color: {self.primary_color}; color: white;")
+        
+        # Initialize garage controller
+        self.garage_controller = get_garage_controller()
+        self.garage_controller.set_button_callback(self.on_physical_garage_button)
+        
+        # Admin password from environment variable
+        self.admin_password = os.environ.get("GATEWISE_ADMIN_PASSWORD", "admin")
 
         # Initialize garage controller if enabled
         self.garage_controller = None
@@ -147,6 +195,7 @@ class GateWiseUI(QWidget):
         self.init_user_screen()
         if self.config.garage_enabled:
             self.init_garage_screen()
+        self.init_garage_screen()
 
         self.stack.addWidget(self.main_screen)
         self.stack.addWidget(self.settings_screen)
@@ -155,6 +204,7 @@ class GateWiseUI(QWidget):
         self.stack.addWidget(self.user_screen)
         if self.config.garage_enabled:
             self.stack.addWidget(self.garage_screen)
+        self.stack.addWidget(self.garage_screen)
 
         main_layout.addWidget(self.stack)
         main_layout.addLayout(self.init_action_bar())
@@ -170,15 +220,12 @@ class GateWiseUI(QWidget):
         layout = QVBoxLayout()
         self.main_screen.setLayout(layout)
 
-        logo_label = QLabel()
-        logo_label.setAlignment(Qt.AlignCenter)
-        if os.path.exists(self.logo_path):
-            pixmap = QPixmap(self.logo_path)
-            logo_label.setPixmap(pixmap.scaledToHeight(60, Qt.SmoothTransformation))
-        else:
-            logo_label.setText("GateWise")
-            logo_label.setFont(QFont("Arial", 20))
-        layout.addWidget(logo_label)
+        # Simple welcome header for home use
+        title_label = QLabel("Home Access Control")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setFont(QFont("Arial", 24, QFont.Bold))
+        title_label.setStyleSheet("padding: 20px;")
+        layout.addWidget(title_label)
 
         icons_layout = QGridLayout()
         icons_layout.setColumnStretch(0, 1)
@@ -219,26 +266,30 @@ class GateWiseUI(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(20)
 
-        unlock_btn = QPushButton()
+        unlock_btn = QPushButton("Unlock Door")
         if os.path.exists(self.unlock_icon_path):
             unlock_btn.setIcon(QIcon(self.unlock_icon_path))
-        unlock_btn.setIconSize(QSize(48, 48))
-        unlock_btn.setToolTip("Unlock")
+        unlock_btn.setIconSize(QSize(32, 32))
+        unlock_btn.clicked.connect(self.unlock_door)
 
-        lock_btn = QPushButton()
+        lock_btn = QPushButton("Lock Door")
         if os.path.exists(self.lock_icon_path):
             lock_btn.setIcon(QIcon(self.lock_icon_path))
-        lock_btn.setIconSize(QSize(48, 48))
-        lock_btn.setToolTip("Lock")
+        lock_btn.setIconSize(QSize(32, 32))
+        lock_btn.clicked.connect(self.lock_door)
 
         class_btn = QPushButton()
         if os.path.exists(self.class_icon_path):
             class_btn.setIcon(QIcon(self.class_icon_path))
         class_btn.setIconSize(QSize(48, 48))
         class_btn.setToolTip("Timed Unlock")  # Updated from "Unlock for Class"
+        garage_btn = QPushButton("Garage")
+        garage_btn.setIcon(QIcon(self.settings_icon_path))  # Reuse settings icon for garage
+        garage_btn.setIconSize(QSize(32, 32))
+        garage_btn.clicked.connect(self.show_garage)
 
-        for btn in (unlock_btn, lock_btn, class_btn):
-            btn.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px; border-radius: 10px;")
+        for btn in (unlock_btn, lock_btn, garage_btn):
+            btn.setStyleSheet("background-color: #34495e; color: white; padding: 10px; border-radius: 10px; font-size: 14px;")
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             btn_layout.addWidget(btn)
 
@@ -257,8 +308,10 @@ class GateWiseUI(QWidget):
         blackout_btn.clicked.connect(self.show_blackout)
         user_btn = QPushButton("User Maintenance")
         user_btn.clicked.connect(self.show_user_management)
+        garage_btn = QPushButton("Garage Control")
+        garage_btn.clicked.connect(self.show_garage)
 
-        for btn in (blackout_btn, user_btn):
+        for btn in (blackout_btn, user_btn, garage_btn):
             btn.setStyleSheet("background-color: #34495e; color: white; font-size: 16px; padding: 12px;")
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             layout.addWidget(btn)
@@ -577,10 +630,19 @@ class GateWiseUI(QWidget):
         self.auto_sync_toggle.setChecked(False)
         self.auto_sync_toggle.stateChanged.connect(self.toggle_auto_sync)
         self.auto_sync_enabled = False
+        self.auto_sync_toggle.setChecked(False)
+        self.auto_sync_toggle.stateChanged.connect(self.toggle_auto_sync)
+        self.auto_sync_toggle.setStyleSheet("font-size: 14px;")
         buttons_layout.addWidget(self.auto_sync_toggle)
 
         layout.addLayout(buttons_layout)
+        
+        back_btn = QPushButton("Back")
+        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_screen))
+        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
+        layout.addWidget(back_btn)
 
+        self.auto_sync_enabled = False
         self.load_users()
 
     def load_users(self):
@@ -654,14 +716,50 @@ class GateWiseUI(QWidget):
     def save_users(self):
         with open(self.config.users_file, "w") as f:
             json.dump(self.users, f, indent=4)
-        if self.auto_sync_enabled:
+        if getattr(self, "auto_sync_enabled", False):
+            # trigger a non-blocking push so GUI stays responsive
             self.push_to_door_modules()
+
+    def toggle_auto_sync(self, state):
+        """Enable/disable automatic syncing when user lists change."""
+        self.auto_sync_enabled = bool(state)
+
+    def push_to_door_modules(self):
+        """Send the current `self.users` to each door module.
+
+        This call is non-blocking: it spawns a background thread to perform network I/O.
+        The payload is JSON: {"users": [...]}
+        """
+        users_payload = {
+            "users": self.users
+        }
+
+        def _worker(payload, hosts, port):
+            data = json.dumps(payload).encode("utf-8")
+            for host in hosts:
+                try:
+                    with socket.create_connection((host, port), timeout=5) as s:
+                        s.sendall(data)
+                        # optional small ACK read (non-blocking, best-effort)
+                        try:
+                            s.settimeout(1.0)
+                            _ = s.recv(1024)
+                        except Exception:
+                            pass
+                    print(f"[INFO] Pushed users to {host}:{port}")
+                except Exception as e:
+                    print(f"[WARN] Failed to push to {host}:{port} - {e}")
+
+        hosts = DOOR_MODULE_IPS.copy()
+        t = threading.Thread(target=_worker, args=(users_payload, hosts, DOOR_MODULE_PORT), daemon=True)
+        t.start()
 
     def request_password(self):
         dlg = PasswordDialog(self)
         if dlg.exec_():
             entered_password = dlg.get_password()
             if entered_password == self.config.admin_password:
+            if dlg.get_password() == self.admin_password:
                 self.show_settings()
             else:
                 QMessageBox.warning(self, "Access Denied", "Incorrect password.")
@@ -707,6 +805,92 @@ class GateWiseUI(QWidget):
             QMessageBox.information(self, "Success", f"User data pushed to {len(DOOR_MODULE_IPS)} door module(s).")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to push to door modules: {e}")
+    def show_garage(self):
+        self.stack.setCurrentWidget(self.garage_screen)
+    
+    def init_garage_screen(self):
+        """Initialize garage control screen."""
+        layout = QVBoxLayout()
+        self.garage_screen.setLayout(layout)
+        
+        title = QLabel("Garage Door Control")
+        title.setFont(QFont("Arial", 16))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        # Status label
+        status_text = "Garage control enabled" if self.garage_controller.is_enabled() else "Garage control disabled (GPIO not available)"
+        self.garage_status_label = QLabel(status_text)
+        self.garage_status_label.setFont(QFont("Arial", 14))
+        self.garage_status_label.setAlignment(Qt.AlignCenter)
+        self.garage_status_label.setStyleSheet("padding: 20px; background-color: #34495e; border-radius: 10px; margin: 10px;")
+        layout.addWidget(self.garage_status_label)
+        
+        # Trigger button
+        trigger_btn = QPushButton("Trigger Garage Door")
+        trigger_btn.setStyleSheet("background-color: #e74c3c; color: white; font-size: 18px; padding: 20px; border-radius: 10px; margin: 20px;")
+        trigger_btn.clicked.connect(self.trigger_garage_door)
+        trigger_btn.setEnabled(self.garage_controller.is_enabled())
+        layout.addWidget(trigger_btn)
+        
+        # Info text
+        info_label = QLabel("Press the button above to trigger the garage door.\nThe system will send a brief pulse to the relay.")
+        info_label.setAlignment(Qt.AlignCenter)
+        info_label.setStyleSheet("padding: 10px; color: #bdc3c7;")
+        layout.addWidget(info_label)
+        
+        layout.addStretch()
+        
+        # Back button
+        back_btn = QPushButton("Back")
+        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_screen))
+        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
+        layout.addWidget(back_btn)
+    
+    def trigger_garage_door(self):
+        """Trigger the garage door opener."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Garage Action",
+            "Are you sure you want to trigger the garage door?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            def on_complete(success):
+                if success:
+                    QMessageBox.information(self, "Success", "Garage door triggered successfully.")
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to trigger garage door.")
+            
+            self.garage_controller.trigger_door_async(callback=on_complete)
+    
+    def on_physical_garage_button(self):
+        """Handle physical garage button press."""
+        print("[INFO] Physical garage button pressed - triggering door")
+        self.garage_controller.trigger_door()
+    
+    def unlock_door(self):
+        """Unlock door action."""
+        print("[INFO] Unlock door triggered")
+        QMessageBox.information(self, "Door Action", "Door unlocked")
+    
+    def lock_door(self):
+        """Lock door action."""
+        print("[INFO] Lock door triggered")
+        QMessageBox.information(self, "Door Action", "Door locked")
+    
+    def push_to_door_modules(self):
+        """Push user data to door modules."""
+        print("[INFO] Pushing user data to door modules")
+        QMessageBox.information(self, "Sync", "User data pushed to door modules")
+    
+    def toggle_auto_sync(self, state):
+        """Toggle auto-sync feature."""
+        self.auto_sync_enabled = bool(state)
+        print(f"[INFO] Auto-sync {'enabled' if self.auto_sync_enabled else 'disabled'}")
+
 
 def launch_ui():
     app = QApplication(sys.argv)

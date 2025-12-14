@@ -20,6 +20,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Virtual Environment
 .venv/
 venv/
 ENV/
@@ -40,9 +42,21 @@ garage_state.json
 
 # Configuration with secrets (use .example versions)
 config_local.py
+# Runtime files (keep backups separately)
+users.json
+blackout.json
+
+# Environment variables (secrets)
 .env
 .env.local
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+tmp/
