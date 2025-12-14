@@ -104,6 +104,16 @@ class GateWiseUI(QWidget):
 
         self.setStyleSheet(f"background-color: {self.primary_color}; color: white;")
 
+        # Initialize garage controller if enabled
+        self.garage_controller = None
+        if self.config.garage_enabled:
+            try:
+                from core.garage import GarageDoorController
+                self.garage_controller = GarageDoorController(event_callback=self._garage_event_callback)
+                print("[UI] Garage controller initialized")
+            except Exception as e:
+                print(f"[UI ERROR] Failed to initialize garage controller: {e}")
+
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
@@ -113,21 +123,33 @@ class GateWiseUI(QWidget):
         self.log_screen = QWidget()
         self.blackout_screen = QWidget()
         self.user_screen = QWidget()
+        self.garage_screen = QWidget()
 
         self.init_main_screen()
         self.init_settings_screen()
         self.init_log_screen()
         self.init_blackout_screen()
         self.init_user_screen()
+        if self.config.garage_enabled:
+            self.init_garage_screen()
 
         self.stack.addWidget(self.main_screen)
         self.stack.addWidget(self.settings_screen)
         self.stack.addWidget(self.log_screen)
         self.stack.addWidget(self.blackout_screen)
         self.stack.addWidget(self.user_screen)
+        if self.config.garage_enabled:
+            self.stack.addWidget(self.garage_screen)
 
         main_layout.addWidget(self.stack)
         main_layout.addLayout(self.init_action_bar())
+    
+    def _garage_event_callback(self, event_type: str, data):
+        """Handle garage controller events."""
+        print(f"[UI] Garage event: {event_type} - {data}")
+        # Update garage UI if on garage screen
+        if self.config.garage_enabled and self.stack.currentWidget() == self.garage_screen:
+            self.update_garage_status()
 
     def init_main_screen(self):
         layout = QVBoxLayout()
@@ -146,6 +168,8 @@ class GateWiseUI(QWidget):
         icons_layout = QGridLayout()
         icons_layout.setColumnStretch(0, 1)
         icons_layout.setColumnStretch(1, 1)
+        if self.config.garage_enabled:
+            icons_layout.setColumnStretch(2, 1)
         icons_layout.setRowStretch(0, 1)
 
         logs_icon = QPushButton()
@@ -163,6 +187,16 @@ class GateWiseUI(QWidget):
         settings_icon.setStyleSheet("background-color: transparent;")
         settings_icon.clicked.connect(self.request_password)
         icons_layout.addWidget(settings_icon, 0, 1, alignment=Qt.AlignCenter)
+
+        # Add garage button if enabled
+        if self.config.garage_enabled:
+            garage_icon = QPushButton()
+            garage_icon.setText("🚪")  # Garage door emoji as placeholder
+            garage_icon.setFont(QFont("Arial", 48))
+            garage_icon.setStyleSheet("background-color: transparent; color: white;")
+            garage_icon.clicked.connect(self.show_garage)
+            garage_icon.setToolTip("Garage Control")
+            icons_layout.addWidget(garage_icon, 0, 2, alignment=Qt.AlignCenter)
 
         layout.addLayout(icons_layout)
 
@@ -186,7 +220,7 @@ class GateWiseUI(QWidget):
         if os.path.exists(self.class_icon_path):
             class_btn.setIcon(QIcon(self.class_icon_path))
         class_btn.setIconSize(QSize(48, 48))
-        class_btn.setToolTip("Unlock for Class")
+        class_btn.setToolTip("Timed Unlock")  # Updated from "Unlock for Class"
 
         for btn in (unlock_btn, lock_btn, class_btn):
             btn.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px; border-radius: 10px;")
@@ -214,8 +248,8 @@ class GateWiseUI(QWidget):
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             layout.addWidget(btn)
 
-        # Lock Settings Section
-        lock_settings_title = QLabel("Class Access Settings")
+        # Timed Access Settings Section (renamed from "Class Access Settings")
+        lock_settings_title = QLabel("Timed Access Settings")
         lock_settings_title.setFont(QFont("Arial", 14))
         lock_settings_title.setAlignment(Qt.AlignLeft)
         layout.addWidget(lock_settings_title)
@@ -359,6 +393,141 @@ class GateWiseUI(QWidget):
         except Exception as e:
             print(f"[ERROR] Failed to load blackout schedule: {e}")
 
+    def init_garage_screen(self):
+        """Initialize garage door control screen."""
+        layout = QVBoxLayout()
+        self.garage_screen.setLayout(layout)
+
+        title = QLabel("Garage Door Control")
+        title.setFont(QFont("Arial", 16))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Status display
+        status_group = QGroupBox("Current Status")
+        status_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 15px; }")
+        status_layout = QVBoxLayout()
+
+        self.garage_status_label = QLabel("Status: Unknown")
+        self.garage_status_label.setFont(QFont("Arial", 20, QFont.Bold))
+        self.garage_status_label.setAlignment(Qt.AlignCenter)
+        status_layout.addWidget(self.garage_status_label)
+
+        self.garage_last_trigger_label = QLabel("Last triggered: Never")
+        self.garage_last_trigger_label.setAlignment(Qt.AlignCenter)
+        status_layout.addWidget(self.garage_last_trigger_label)
+
+        status_group.setLayout(status_layout)
+        layout.addWidget(status_group)
+
+        # Control buttons
+        control_group = QGroupBox("Controls")
+        control_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 15px; }")
+        control_layout = QVBoxLayout()
+
+        self.garage_trigger_btn = QPushButton("Trigger Garage Door")
+        self.garage_trigger_btn.setStyleSheet("background-color: #e67e22; color: white; font-size: 18px; padding: 15px; font-weight: bold;")
+        self.garage_trigger_btn.clicked.connect(self.trigger_garage_door)
+        control_layout.addWidget(self.garage_trigger_btn)
+
+        if self.config.garage_auto_close_seconds > 0:
+            self.garage_cancel_auto_close_btn = QPushButton("Cancel Auto-Close")
+            self.garage_cancel_auto_close_btn.setStyleSheet("background-color: #c0392b; color: white; font-size: 14px; padding: 10px;")
+            self.garage_cancel_auto_close_btn.clicked.connect(self.cancel_auto_close)
+            control_layout.addWidget(self.garage_cancel_auto_close_btn)
+
+        control_group.setLayout(control_layout)
+        layout.addWidget(control_group)
+
+        # Recent events
+        events_group = QGroupBox("Recent Activity")
+        events_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 10px; }")
+        events_layout = QVBoxLayout()
+
+        self.garage_events_list = QListWidget()
+        self.garage_events_list.setStyleSheet("background-color: #1e1e1e; color: white; font-size: 12px;")
+        events_layout.addWidget(self.garage_events_list)
+
+        events_group.setLayout(events_layout)
+        layout.addWidget(events_group)
+
+        # Back button
+        back_btn = QPushButton("Back")
+        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
+        back_btn.clicked.connect(self.show_main)
+        layout.addWidget(back_btn)
+
+        # Initial status update
+        self.update_garage_status()
+
+    def trigger_garage_door(self):
+        """Trigger the garage door relay."""
+        if not self.garage_controller:
+            QMessageBox.warning(self, "Error", "Garage controller not available.")
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Action",
+            "Trigger the garage door?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if confirm == QMessageBox.Yes:
+            success = self.garage_controller.trigger("ui")
+            if success:
+                QMessageBox.information(self, "Success", "Garage door triggered.")
+                self.update_garage_status()
+            else:
+                QMessageBox.warning(self, "Failed", "Failed to trigger garage door.")
+
+    def cancel_auto_close(self):
+        """Cancel scheduled auto-close."""
+        if not self.garage_controller:
+            return
+
+        self.garage_controller.cancel_auto_close()
+        QMessageBox.information(self, "Cancelled", "Auto-close cancelled.")
+
+    def update_garage_status(self):
+        """Update garage status display."""
+        if not self.garage_controller:
+            return
+
+        # Update status label
+        state = self.garage_controller.get_state()
+        state_colors = {
+            "open": "#e74c3c",
+            "closed": "#27ae60",
+            "opening": "#f39c12",
+            "closing": "#f39c12",
+            "unknown": "#95a5a6"
+        }
+        color = state_colors.get(state, "#95a5a6")
+        self.garage_status_label.setText(f"Status: {state.upper()}")
+        self.garage_status_label.setStyleSheet(f"color: {color};")
+
+        # Update last trigger time
+        if self.garage_controller.last_trigger_time:
+            from datetime import datetime
+            last_time = datetime.fromtimestamp(self.garage_controller.last_trigger_time)
+            self.garage_last_trigger_label.setText(f"Last triggered: {last_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            self.garage_last_trigger_label.setText("Last triggered: Never")
+
+        # Update events list
+        events = self.garage_controller.get_recent_events(20)
+        self.garage_events_list.clear()
+        for event in reversed(events):  # Show newest first
+            self.garage_events_list.addItem(event)
+
+    def show_garage(self):
+        """Show garage control screen."""
+        if self.config.garage_enabled:
+            self.update_garage_status()
+            self.stack.setCurrentWidget(self.garage_screen)
+        else:
+            QMessageBox.information(self, "Not Available", "Garage control is not enabled.")
 
     def init_user_screen(self):
         layout = QVBoxLayout()
