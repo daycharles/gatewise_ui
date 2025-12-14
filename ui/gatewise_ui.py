@@ -11,9 +11,23 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QTime
-from mfrc522 import SimpleMFRC522
 
-reader = SimpleMFRC522()
+# Attempt to import MFRC522 RFID reader. If not present (e.g., running on Windows),
+# fall back gracefully so the UI can run without hardware.
+try:
+    from mfrc522 import SimpleMFRC522
+    try:
+        reader = SimpleMFRC522()
+        RFID_AVAILABLE = True
+    except Exception:
+        reader = None
+        RFID_AVAILABLE = False
+        print("[WARNING] MFRC522 present but failed to initialize. RFID scanning disabled.")
+except Exception:
+    reader = None
+    RFID_AVAILABLE = False
+    print("[WARNING] MFRC522 not available. RFID scanning will be disabled.")
+
 DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
 DOOR_MODULE_PORT = 5006
 
@@ -373,20 +387,6 @@ class GateWiseUI(QWidget):
         except Exception as e:
             print(f"[ERROR] Failed to load blackout schedule: {e}")
 
-    def save_blackout_schedule(self):
-        data = {}
-        for day, blocks in self.blackout_blocks.items():
-            day_list = []
-            for start, end, _ in blocks:
-                day_list.append({
-                    "start": start.time().toString("HH:mm"),
-                    "end": end.time().toString("HH:mm")
-                })
-            data[day] = day_list
-
-        with open("blackout.json", "w") as f:
-            json.dump(data, f, indent=4)
-        QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
 
     def init_user_screen(self):
         layout = QVBoxLayout()
