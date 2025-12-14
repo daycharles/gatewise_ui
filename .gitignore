@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 .venv/
@@ -33,6 +34,14 @@ env/
 *.swo
 *~
 
+# Runtime data files (created by the app)
+users.json
+blackout.json
+garage_state.json
+*.log
+
+# Configuration with secrets (use .example versions)
+config_local.py
 # Runtime files (keep backups separately)
 users.json
 blackout.json
