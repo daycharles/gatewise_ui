@@ -15,6 +15,7 @@ usage() {
 Usage: $(basename "$0") [options]
 
 Options:
+  -g GIT_URL        Git repo URL (default: https://github.com/daycharles/gatewise_ui)
   -g GIT_URL        Git repo URL (default: https://github.com/<your-org-or-user>/gatewise_ui.git)
   -d DIR            Install directory (default: /home/pi/gatewise_ui)
   -u USER           System user to own files and create autostart for (default: current user)
@@ -22,11 +23,13 @@ Options:
   -h                Show this help
 
 Example:
+  ./deploy_pi.sh -g https://github.com/daycharles/gatewise_ui -d /opt/gatewise_ui -u pi
   ./deploy_pi.sh -g https://github.com/you/gatewise_ui.git -d /opt/gatewise_ui -u pi
 EOF
 }
 
 # Defaults - override with flags
+GIT_URL="https://github.com/daycharles/gatewise_ui"
 GIT_URL="https://github.com/<your-org-or-user>/gatewise_ui.git"
 GATEWISE_DIR="/home/pi/gatewise_ui"
 CREATE_AUTOSTART=true
@@ -49,11 +52,17 @@ echo "  Repo: $GIT_URL"
 echo "  Install dir: $GATEWISE_DIR"
 echo "  Autostart for user: $AUTOSTART_USER (create: $CREATE_AUTOSTART)"
 
+# Apt packages needed for a GUI + PyQt via apt, plus common build/runtime tools
 # Apt packages needed for a GUI + PyQt via apt, plus common build tools
 APT_PACKAGES=(
   python3-pyqt5
   python3-pyqt5.qtwebengine
   build-essential
+  python3-dev
+  python3-venv
+  python3-pip
+  python3-rpi.gpio
+  python3-spidev
   python3-venv
   python3-pip
   git
