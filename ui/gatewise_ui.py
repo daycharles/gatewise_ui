@@ -76,11 +76,17 @@ class UserDialog(QDialog):
             self.uid_input.setDisabled(True)
 
     def scan_uid(self):
+        if not RFID_AVAILABLE or reader is None:
+            QMessageBox.warning(self, "RFID Not Available", "RFID scanning is not available on this system.")
+            return
         self.uid_input.setPlaceholderText("Waiting for scan...")
+        import threading
         thread = threading.Thread(target=self._read_uid, daemon=True)
         thread.start()
 
     def _read_uid(self):
+        if not RFID_AVAILABLE or reader is None:
+            return
         try:
             uid, _ = reader.read()
             self.uid_input.setText(str(uid))
