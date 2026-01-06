@@ -4,12 +4,7 @@ pipeline {
   libraries {
     lib 'bitwiseman-shared@blog/declarative/notifications'
   }
-  agent {
-    // Use docker container
-    docker {
-      image 'ruby:2.3'
-    }
-  }
+  agent any
   options {
     // Only keep the 10 most recent builds
     buildDiscarder(logRotator(numToKeepStr:'10'))
@@ -67,3 +62,4 @@ pipeline {
     }
   }
 }
+
