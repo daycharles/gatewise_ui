@@ -49,17 +49,6 @@ class Config:
             print("[WARNING] Set environment variable GATEWISE_ADMIN_PASSWORD for security!")
             self.admin_password = 'admin'  # Fallback for development only
         
-        # Garage Door Settings
-        self.garage_enabled = str_to_bool(os.environ.get('GARAGE_ENABLED', 'false'))
-        self.garage_relay_pin = int(os.environ.get('GARAGE_RELAY_PIN', '17'))
-        self.garage_relay_active_low = str_to_bool(os.environ.get('GARAGE_RELAY_ACTIVE_LOW', 'true'))
-        self.garage_relay_pulse_ms = int(os.environ.get('GARAGE_RELAY_PULSE_MS', '500'))
-        self.garage_button_pin = int(os.environ.get('GARAGE_BUTTON_PIN', '27'))
-        self.garage_sensor_pin = os.environ.get('GARAGE_SENSOR_PIN', '')
-        self.garage_sensor_pin = int(self.garage_sensor_pin) if self.garage_sensor_pin else None
-        self.garage_sensor_active_low = str_to_bool(os.environ.get('GARAGE_SENSOR_ACTIVE_LOW', 'true'))
-        self.garage_auto_close_seconds = int(os.environ.get('GARAGE_AUTO_CLOSE_SECONDS', '0'))
-        
         # RFID Settings
         self.rfid_enabled = str_to_bool(os.environ.get('RFID_ENABLED', 'true'))
         self.rfid_type = os.environ.get('RFID_TYPE', 'mfrc522')
@@ -70,7 +59,7 @@ class Config:
         self.door_module_port = int(os.environ.get('DOOR_MODULE_PORT', '5006'))
         
         # Application Settings
-        self.app_title = os.environ.get('APP_TITLE', 'GateWise Home Access Control')
+        self.app_title = os.environ.get('APP_TITLE', 'GateWise Access Control')
         self.primary_color = os.environ.get('PRIMARY_COLOR', '#355265')
         self.debug_mode = str_to_bool(os.environ.get('DEBUG_MODE', 'false'))
         self.log_file = os.environ.get('LOG_FILE', 'gatewise.log')
@@ -88,7 +77,6 @@ class Config:
         # Data Persistence
         self.users_file = os.environ.get('USERS_FILE', 'users.json')
         self.blackout_file = os.environ.get('BLACKOUT_FILE', 'blackout.json')
-        self.garage_state_file = os.environ.get('GARAGE_STATE_FILE', 'garage_state.json')
         self.auto_backup_hours = int(os.environ.get('AUTO_BACKUP_HOURS', '0'))
         self.backup_dir = os.environ.get('BACKUP_DIR', 'backups')
     
@@ -111,12 +99,6 @@ class Config:
         print("GateWise Configuration")
         print("=" * 60)
         print(f"Admin Password: {'SET' if self.admin_password != 'admin' else 'NOT SET (USING DEFAULT!)'}")
-        print(f"Garage Enabled: {self.garage_enabled}")
-        if self.garage_enabled:
-            print(f"  Relay Pin: GPIO{self.garage_relay_pin}")
-            print(f"  Button Pin: GPIO{self.garage_button_pin}")
-            print(f"  Sensor Pin: {'GPIO' + str(self.garage_sensor_pin) if self.garage_sensor_pin else 'None'}")
-            print(f"  Pulse Duration: {self.garage_relay_pulse_ms}ms")
         print(f"RFID Enabled: {self.rfid_enabled}")
         print(f"Door Modules: {', '.join(self.door_module_ips)}")
         print(f"Debug Mode: {self.debug_mode}")
