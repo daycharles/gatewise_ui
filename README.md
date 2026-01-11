@@ -1,58 +1,14 @@
-# Home Access Control System
+# GateWise Access Control System
 
-Modern PyQt5 touchscreen interface for secure home access control, including door access management and garage door control.
-
-## Features
-
-- RFID-based access control
-- User management with admin privileges
-- Blackout schedule configuration
-- Garage door control via GPIO relay
-- Physical garage button monitoring
-- Access logs and history
-- Touchscreen-friendly interface
-
-## Documentation
-
-See [SETUP.md](SETUP.md) for detailed installation and configuration instructions.
-
-## Quick Start
-
-1. Clone the repository
-2. Create virtual environment: `python -m venv .venv`
-3. Activate virtual environment:
-   - Windows: `. .\.venv\Scripts\Activate.ps1`
-   - Linux/macOS: `source .venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
-5. Set admin password: `export GATEWISE_ADMIN_PASSWORD="your-password"`
-6. Run application: `python main.py`
-
-## Requirements
-
-- Python 3.11 or 3.12
-- PyQt5
-- Optional: Raspberry Pi with MFRC522 RFID reader
-- Optional: GPIO relay module for garage control
-
-## Security
-
-- Admin password is configured via environment variable `GATEWISE_ADMIN_PASSWORD`
-- Never commit passwords or secrets to version control
-- Keep backup copies of `users.json` and `blackout.json`
-
-## License
-
-See repository for license information.
-
-Modern PyQt5 touchscreen interface for secure home access control with garage door integration.
+Modern PyQt5 touchscreen interface for secure gym access control with RFID-based member verification.
 
 ## Features
 
-- **RFID Access Control**: Manage authorized users with MFRC522 RFID reader
-- **Garage Door Control**: Relay-based garage door opener with manual button support
+- **RFID Access Control**: Manage authorized gym members with MFRC522 RFID reader
 - **User Management**: Add, edit, and remove authorized users with admin privileges
-- **Access Schedules**: Configure blackout periods and timed access windows
-- **Event Logging**: Track all access attempts and garage door operations
+- **Class Access**: "Unlock for Class" functionality with configurable duration
+- **Blackout Schedules**: Configure time periods when access is restricted
+- **Access Logs**: Track all entry attempts and member activity
 - **Touch-Friendly UI**: Designed for touchscreen displays (800x480 default)
 - **Network Sync**: Push user data to remote door control modules
 - **Secure Configuration**: Environment-based configuration with no hardcoded passwords
@@ -65,7 +21,7 @@ See [SETUP.md](SETUP.md) for detailed installation and configuration instruction
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/gatewise_ui.git
+git clone https://github.com/daycharles/gatewise_ui.git
 cd gatewise_ui
 
 # Create virtual environment
@@ -86,18 +42,17 @@ python main.py
 
 ## Hardware Requirements
 
-### Minimum (RFID only)
+### Minimum Setup
 - Raspberry Pi 3B+ or newer (or any PC for development)
 - MFRC522 RFID reader module
 - Touchscreen display (optional, can use desktop monitor)
 
-### Full Setup (with Garage Control)
-- Raspberry Pi 3B+ or newer
-- MFRC522 RFID reader module
-- Relay module (1-channel, opto-isolated recommended)
-- Push button (momentary, normally-open)
-- Optional: magnetic reed switch for door position sensing
-- Touchscreen display or HDMI monitor
+### Recommended for Gym Deployment
+- Raspberry Pi 4
+- MFRC522 RFID reader with RFID cards/fobs for members
+- 7" or 10" touchscreen display
+- Weatherproof enclosure (for outdoor installations)
+- Door strike or magnetic lock (controlled by network module)
 
 ## Configuration
 
@@ -110,9 +65,10 @@ nano .env
 
 Key settings:
 - `GATEWISE_ADMIN_PASSWORD`: Admin password (REQUIRED)
-- `GARAGE_ENABLED`: Enable garage door features (true/false)
-- `GARAGE_RELAY_PIN`: GPIO pin for relay control (BCM numbering)
-- `GARAGE_BUTTON_PIN`: GPIO pin for manual button input
+- `RFID_ENABLED`: Enable RFID reader (true/false)
+- `DOOR_MODULE_IPS`: Comma-separated list of door controller IPs
+- `APP_TITLE`: Application title
+- `PRIMARY_COLOR`: Primary UI color (hex format)
 
 See [SETUP.md](SETUP.md) for complete configuration options.
 
@@ -125,17 +81,27 @@ gatewise_ui/
 │   └── gatewise_ui.py     # Main UI implementation
 ├── core/
 │   ├── config.py          # Configuration management
-│   ├── garage.py          # Garage door controller
-│   ├── gpio_abstraction.py  # GPIO platform abstraction
 │   ├── logger.py          # Event logging
 │   ├── network_listener.py   # Network communication
 │   └── override_controls.py  # Access override logic
 ├── resources/
 │   └── icons/             # UI icons and images
 ├── SETUP.md               # Detailed setup guide
-├── IMPLEMENTATION_PLAN.md # Development roadmap
 └── config.example         # Configuration template
 ```
+
+## Usage
+
+### For Gym Members
+1. Present RFID card/fob to reader
+2. System verifies membership and access permissions
+3. Door unlocks if authorized
+
+### For Gym Staff
+- **Access Logs**: View member entry history
+- **Settings**: Configure blackout schedules and class access duration
+- **User Management**: Add/remove members, manage admin privileges
+- **Class Mode**: Use "Unlock for Class" button to temporarily unlock door for scheduled classes
 
 ## Security Notes
 
@@ -143,19 +109,22 @@ gatewise_ui/
 
 1. **Never use the default admin password** - Set `GATEWISE_ADMIN_PASSWORD` immediately
 2. **Protect configuration files** - Ensure `.env` and data files have restricted permissions (chmod 600)
-3. **Secure remote access** - Use VPN instead of port forwarding; enable TLS if exposing to internet
-4. **Regular backups** - Backup `users.json`, `blackout.json`, and `.env` regularly
+3. **Secure remote access** - Use VPN instead of port forwarding
+4. **Regular backups** - Backup `users.json` and `blackout.json` regularly
 5. **Physical security** - Protect the Raspberry Pi from unauthorized physical access
 
 ## Development
 
-### Mock GPIO for Desktop Development
+### Mock Hardware for Desktop Development
 
-The application automatically uses mock GPIO when not running on a Raspberry Pi, allowing development and testing on any platform.
+The application automatically uses mock hardware when not running on a Raspberry Pi, allowing development and testing on any platform.
 
 ### Contributing
 
-Contributions welcome! Please see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for planned features and improvements.
+Contributions welcome! Please:
+- Test changes before submitting pull requests
+- Follow existing code style and conventions
+- Update documentation for new features
 
 ## License
 
@@ -163,13 +132,12 @@ Contributions welcome! Please see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.m
 
 ## Support
 
-For issues, questions, or feature requests, please:
+For issues, questions, or feature requests:
 1. Check [SETUP.md](SETUP.md) for troubleshooting
-2. Review [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for planned features
-3. Open an issue on GitHub with details
+2. Open an issue on GitHub with details
 
 ## Acknowledgments
 
 - Built with PyQt5
 - RFID support via [MFRC522-python](https://github.com/pimylifeup/MFRC522-python)
-- GPIO support via RPi.GPIO / gpiozero
+- GPIO support via RPi.GPIO

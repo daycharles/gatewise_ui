@@ -1,5 +1,5 @@
 """
-Basic tests for the home access control system.
+Basic tests for the gym access control system.
 """
 
 import os
@@ -14,18 +14,6 @@ os.environ['GATEWISE_ADMIN_PASSWORD'] = 'test_password_123'
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-def test_garage_controller_import():
-    """Test that garage controller can be imported."""
-    from core.garage import GarageController, get_garage_controller
-    
-    controller = get_garage_controller()
-    assert controller is not None
-    # GPIO won't be available in CI, so just check it initializes
-    assert hasattr(controller, 'enabled')
-    assert hasattr(controller, 'trigger_door')
-    print("✓ Garage controller import test passed")
 
 
 def test_ui_classes_import():
@@ -56,17 +44,6 @@ def test_admin_password_from_env():
     print("✓ Admin password from environment test passed")
 
 
-def test_garage_controller_singleton():
-    """Test that garage controller returns same instance."""
-    from core.garage import get_garage_controller
-    
-    controller1 = get_garage_controller()
-    controller2 = get_garage_controller()
-    
-    assert controller1 is controller2
-    print("✓ Garage controller singleton test passed")
-
-
 def test_user_persistence():
     """Test that user data can be saved and loaded."""
     from PyQt5.QtWidgets import QApplication
@@ -88,7 +65,7 @@ def test_user_persistence():
         # Add a test user
         test_user = {
             "uid": "123456",
-            "name": "Test User",
+            "name": "Test Gym Member",
             "isAdmin": False
         }
         window.users = [test_user]
@@ -103,7 +80,7 @@ def test_user_persistence():
         
         assert len(loaded_users) == 1
         assert loaded_users[0]["uid"] == "123456"
-        assert loaded_users[0]["name"] == "Test User"
+        assert loaded_users[0]["name"] == "Test Gym Member"
         
         print("✓ User persistence test passed")
     
@@ -130,22 +107,39 @@ def test_ui_initialization():
     assert window.log_screen is not None
     assert window.blackout_screen is not None
     assert window.user_screen is not None
-    assert window.garage_screen is not None
     
-    # Check that garage controller is initialized
-    assert window.garage_controller is not None
+    # Check class duration dropdown exists
+    assert window.class_duration_dropdown is not None
     
     print("✓ UI initialization test passed")
 
 
-if __name__ == "__main__":
-    print("\n=== Running Home Access Control Tests ===\n")
+def test_unlock_for_class_function():
+    """Test that unlock_for_class function exists and is callable."""
+    from PyQt5.QtWidgets import QApplication
+    from ui.gatewise_ui import GateWiseUI
     
-    test_garage_controller_import()
+    # Get existing app or create new one
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+    
+    window = GateWiseUI()
+    
+    # Check that unlock_for_class method exists
+    assert hasattr(window, 'unlock_for_class')
+    assert callable(window.unlock_for_class)
+    
+    print("✓ Unlock for class function test passed")
+
+
+if __name__ == "__main__":
+    print("\n=== Running Gym Access Control Tests ===\n")
+    
     test_ui_classes_import()
     test_admin_password_from_env()
-    test_garage_controller_singleton()
     test_user_persistence()
     test_ui_initialization()
+    test_unlock_for_class_function()
     
     print("\n=== All tests passed! ===\n")

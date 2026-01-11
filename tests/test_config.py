@@ -42,40 +42,23 @@ class TestConfig(unittest.TestCase):
     
     def test_default_config(self):
         """Test default configuration values."""
+        # Clear password env var to test default
+        if 'GATEWISE_ADMIN_PASSWORD' in os.environ:
+            del os.environ['GATEWISE_ADMIN_PASSWORD']
+        
         config = Config()
         
         # Should have fallback admin password
         self.assertEqual(config.admin_password, 'admin')
         
-        # Garage should be disabled by default
-        self.assertFalse(config.garage_enabled)
-        
         # RFID should be enabled by default
         self.assertTrue(config.rfid_enabled)
-        
-        # Default pins
-        self.assertEqual(config.garage_relay_pin, 17)
-        self.assertEqual(config.garage_button_pin, 27)
     
     def test_env_password(self):
         """Test password from environment variable."""
         os.environ['GATEWISE_ADMIN_PASSWORD'] = 'test_password_123'
         config = Config()
         self.assertEqual(config.admin_password, 'test_password_123')
-    
-    def test_garage_config(self):
-        """Test garage configuration."""
-        os.environ['GARAGE_ENABLED'] = 'true'
-        os.environ['GARAGE_RELAY_PIN'] = '22'
-        os.environ['GARAGE_BUTTON_PIN'] = '23'
-        os.environ['GARAGE_RELAY_PULSE_MS'] = '1000'
-        
-        config = Config()
-        
-        self.assertTrue(config.garage_enabled)
-        self.assertEqual(config.garage_relay_pin, 22)
-        self.assertEqual(config.garage_button_pin, 23)
-        self.assertEqual(config.garage_relay_pulse_ms, 1000)
     
     def test_window_size_parsing(self):
         """Test window size parsing."""

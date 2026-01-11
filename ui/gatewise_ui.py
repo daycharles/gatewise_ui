@@ -42,28 +42,6 @@ except (ImportError, RuntimeError):
     RFID_AVAILABLE = False
     print("[WARNING] MFRC522 not available. RFID scanning will be disabled.")
 
-# Import garage controller
-from core.garage import get_garage_controller
-
-DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
-DOOR_MODULE_PORT = 5006
-
-
-class Toggle(QCheckBox):
-    """Simple Toggle control implemented as a styled QCheckBox.
-
-    Keeps the `stateChanged` signal API used by the rest of the UI.
-    """
-    def __init__(self, label="", parent=None):
-        super().__init__(label, parent)
-        # Basic visual styling; keep small and self-contained so tests/dev UI render.
-        self.setStyleSheet(
-            "QCheckBox { color: white; font-size: 14px; }"
-            "QCheckBox::indicator { width: 44px; height: 24px; border-radius: 12px; }"
-            "QCheckBox::indicator:unchecked { background: #7f8c8d; }"
-            "QCheckBox::indicator:checked { background: #27ae60; }"
-        )
-
 
 class PasswordDialog(QDialog):
     def __init__(self, parent=None):
@@ -147,12 +125,10 @@ class GateWiseUI(QWidget):
         self.setWindowTitle(self.config.app_title)
         self.setGeometry(100, 100, self.config.window_width, self.config.window_height)
 
-        self.primary_color = self.config.primary_color
+        self.primary_color = "#355265"  # Gym brand color
         self.logo_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "Gatewise.PNG")
-        self.setWindowTitle("Home Access Control")
+        self.setWindowTitle("GateWise Access Control")
         self.setGeometry(100, 100, 800, 480)
-
-        self.primary_color = "#2c3e50"  # Neutral dark blue-gray for home
         self.logs_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "logs-white.png")
         self.settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "config_white.png")
         self.unlock_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "unlock_white.png")
@@ -163,24 +139,6 @@ class GateWiseUI(QWidget):
         # Admin password from environment variable
         self.admin_password = os.environ.get("GATEWISE_ADMIN_PASSWORD", "admin")
 
-        # Initialize garage controller based on config
-        self.garage_controller = None
-        if self.config.garage_enabled:
-            try:
-                from core.garage import GarageDoorController
-                self.garage_controller = GarageDoorController(event_callback=self._garage_event_callback)
-                print("[UI] Garage controller initialized")
-            except Exception as e:
-                print(f"[UI ERROR] Failed to initialize garage controller: {e}")
-        else:
-            # Use simpler GarageController for basic functionality
-            try:
-                self.garage_controller = get_garage_controller()
-                if self.garage_controller and self.garage_controller.enabled:
-                    self.garage_controller.set_button_callback(self.on_physical_garage_button)
-            except Exception as e:
-                print(f"[UI WARNING] Basic garage controller unavailable: {e}")
-
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
@@ -190,50 +148,44 @@ class GateWiseUI(QWidget):
         self.log_screen = QWidget()
         self.blackout_screen = QWidget()
         self.user_screen = QWidget()
-        self.garage_screen = QWidget()
 
         self.init_main_screen()
         self.init_settings_screen()
         self.init_log_screen()
         self.init_blackout_screen()
         self.init_user_screen()
-        if self.config.garage_enabled:
-            self.init_garage_screen()
 
         self.stack.addWidget(self.main_screen)
         self.stack.addWidget(self.settings_screen)
         self.stack.addWidget(self.log_screen)
         self.stack.addWidget(self.blackout_screen)
         self.stack.addWidget(self.user_screen)
-        if self.config.garage_enabled:
-            self.stack.addWidget(self.garage_screen)
 
         main_layout.addWidget(self.stack)
         main_layout.addLayout(self.init_action_bar())
-    
-    def _garage_event_callback(self, event_type: str, data):
-        """Handle garage controller events."""
-        print(f"[UI] Garage event: {event_type} - {data}")
-        # Update garage UI if on garage screen
-        if self.config.garage_enabled and self.stack.currentWidget() == self.garage_screen:
-            self.update_garage_status()
 
     def init_main_screen(self):
         layout = QVBoxLayout()
         self.main_screen.setLayout(layout)
 
-        # Simple welcome header for home use
-        title_label = QLabel("Home Access Control")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setFont(QFont("Arial", 24, QFont.Bold))
-        title_label.setStyleSheet("padding: 20px;")
-        layout.addWidget(title_label)
+        # GateWise logo
+        if os.path.exists(self.logo_path):
+            logo_label = QLabel()
+            pixmap = QPixmap(self.logo_path)
+            scaled_pixmap = pixmap.scaled(400, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(logo_label)
+        else:
+            title_label = QLabel("GateWise Access Control")
+            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setFont(QFont("Arial", 24, QFont.Bold))
+            title_label.setStyleSheet("padding: 20px;")
+            layout.addWidget(title_label)
 
         icons_layout = QGridLayout()
         icons_layout.setColumnStretch(0, 1)
         icons_layout.setColumnStretch(1, 1)
-        if self.config.garage_enabled:
-            icons_layout.setColumnStretch(2, 1)
         icons_layout.setRowStretch(0, 1)
 
         logs_icon = QPushButton()
@@ -251,16 +203,6 @@ class GateWiseUI(QWidget):
         settings_icon.setStyleSheet("background-color: transparent;")
         settings_icon.clicked.connect(self.request_password)
         icons_layout.addWidget(settings_icon, 0, 1, alignment=Qt.AlignCenter)
-
-        # Add garage button if enabled
-        if self.config.garage_enabled:
-            garage_icon = QPushButton()
-            garage_icon.setText("🚪")  # Garage door emoji as placeholder
-            garage_icon.setFont(QFont("Arial", 48))
-            garage_icon.setStyleSheet("background-color: transparent; color: white;")
-            garage_icon.clicked.connect(self.show_garage)
-            garage_icon.setToolTip("Garage Control")
-            icons_layout.addWidget(garage_icon, 0, 2, alignment=Qt.AlignCenter)
 
         layout.addLayout(icons_layout)
 
@@ -280,12 +222,12 @@ class GateWiseUI(QWidget):
         lock_btn.setIconSize(QSize(32, 32))
         lock_btn.clicked.connect(self.lock_door)
 
-        garage_btn = QPushButton("Garage")
-        garage_btn.setIcon(QIcon(self.settings_icon_path))  # Reuse settings icon for garage
-        garage_btn.setIconSize(QSize(32, 32))
-        garage_btn.clicked.connect(self.show_garage)
+        unlock_class_btn = QPushButton("Unlock for Class")
+        unlock_class_btn.setIcon(QIcon(self.unlock_icon_path))
+        unlock_class_btn.setIconSize(QSize(32, 32))
+        unlock_class_btn.clicked.connect(self.unlock_for_class)
 
-        for btn in (unlock_btn, lock_btn, garage_btn):
+        for btn in (unlock_btn, lock_btn, unlock_class_btn):
             btn.setStyleSheet("background-color: #34495e; color: white; padding: 10px; border-radius: 10px; font-size: 14px;")
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             btn_layout.addWidget(btn)
@@ -305,19 +247,21 @@ class GateWiseUI(QWidget):
         blackout_btn.clicked.connect(self.show_blackout)
         user_btn = QPushButton("User Maintenance")
         user_btn.clicked.connect(self.show_user_management)
-        garage_btn = QPushButton("Garage Control")
-        garage_btn.clicked.connect(self.show_garage)
 
-        for btn in (blackout_btn, user_btn, garage_btn):
+        for btn in (blackout_btn, user_btn):
             btn.setStyleSheet("background-color: #34495e; color: white; font-size: 16px; padding: 12px;")
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             layout.addWidget(btn)
 
-        # Timed Access Settings Section (renamed from "Class Access Settings")
-        lock_settings_title = QLabel("Timed Access Settings")
-        lock_settings_title.setFont(QFont("Arial", 14))
-        lock_settings_title.setAlignment(Qt.AlignLeft)
-        layout.addWidget(lock_settings_title)
+        # Class Access Settings Section
+        class_settings_title = QLabel("Class Access Settings")
+        class_settings_title.setFont(QFont("Arial", 14))
+        class_settings_title.setAlignment(Qt.AlignLeft)
+        layout.addWidget(class_settings_title)
+
+        duration_label = QLabel("Class Duration:")
+        duration_label.setStyleSheet("color: white; font-size: 14px; padding: 5px;")
+        layout.addWidget(duration_label)
 
         self.class_duration_dropdown = QComboBox()
         self.class_duration_dropdown.addItems(["15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes"])
@@ -459,141 +403,6 @@ class GateWiseUI(QWidget):
                         self.add_time_block(day, b["start"], b["end"])
         except Exception as e:
             print(f"[ERROR] Failed to load blackout schedule: {e}")
-
-    def init_garage_screen(self):
-        """Initialize garage door control screen."""
-        layout = QVBoxLayout()
-        self.garage_screen.setLayout(layout)
-
-        title = QLabel("Garage Door Control")
-        title.setFont(QFont("Arial", 16))
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-
-        # Status display
-        status_group = QGroupBox("Current Status")
-        status_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 15px; }")
-        status_layout = QVBoxLayout()
-
-        self.garage_status_label = QLabel("Status: Unknown")
-        self.garage_status_label.setFont(QFont("Arial", 20, QFont.Bold))
-        self.garage_status_label.setAlignment(Qt.AlignCenter)
-        status_layout.addWidget(self.garage_status_label)
-
-        self.garage_last_trigger_label = QLabel("Last triggered: Never")
-        self.garage_last_trigger_label.setAlignment(Qt.AlignCenter)
-        status_layout.addWidget(self.garage_last_trigger_label)
-
-        status_group.setLayout(status_layout)
-        layout.addWidget(status_group)
-
-        # Control buttons
-        control_group = QGroupBox("Controls")
-        control_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 15px; }")
-        control_layout = QVBoxLayout()
-
-        self.garage_trigger_btn = QPushButton("Trigger Garage Door")
-        self.garage_trigger_btn.setStyleSheet("background-color: #e67e22; color: white; font-size: 18px; padding: 15px; font-weight: bold;")
-        self.garage_trigger_btn.clicked.connect(self.trigger_garage_door)
-        control_layout.addWidget(self.garage_trigger_btn)
-
-        if self.config.garage_auto_close_seconds > 0:
-            self.garage_cancel_auto_close_btn = QPushButton("Cancel Auto-Close")
-            self.garage_cancel_auto_close_btn.setStyleSheet("background-color: #c0392b; color: white; font-size: 14px; padding: 10px;")
-            self.garage_cancel_auto_close_btn.clicked.connect(self.cancel_auto_close)
-            control_layout.addWidget(self.garage_cancel_auto_close_btn)
-
-        control_group.setLayout(control_layout)
-        layout.addWidget(control_group)
-
-        # Recent events
-        events_group = QGroupBox("Recent Activity")
-        events_group.setStyleSheet("QGroupBox { font-weight: bold; border: 2px solid #444; margin-top: 10px; padding: 10px; }")
-        events_layout = QVBoxLayout()
-
-        self.garage_events_list = QListWidget()
-        self.garage_events_list.setStyleSheet("background-color: #1e1e1e; color: white; font-size: 12px;")
-        events_layout.addWidget(self.garage_events_list)
-
-        events_group.setLayout(events_layout)
-        layout.addWidget(events_group)
-
-        # Back button
-        back_btn = QPushButton("Back")
-        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
-        back_btn.clicked.connect(self.show_main)
-        layout.addWidget(back_btn)
-
-        # Initial status update
-        self.update_garage_status()
-
-    def trigger_garage_door(self):
-        """Trigger the garage door relay."""
-        if not self.garage_controller:
-            QMessageBox.warning(self, "Error", "Garage controller not available.")
-            return
-
-        confirm = QMessageBox.question(
-            self,
-            "Confirm Action",
-            "Trigger the garage door?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-
-        if confirm == QMessageBox.Yes:
-            success = self.garage_controller.trigger("ui")
-            if success:
-                QMessageBox.information(self, "Success", "Garage door triggered.")
-                self.update_garage_status()
-            else:
-                QMessageBox.warning(self, "Failed", "Failed to trigger garage door.")
-
-    def cancel_auto_close(self):
-        """Cancel scheduled auto-close."""
-        if not self.garage_controller:
-            return
-
-        self.garage_controller.cancel_auto_close()
-        QMessageBox.information(self, "Cancelled", "Auto-close cancelled.")
-
-    def update_garage_status(self):
-        """Update garage status display."""
-        if not self.garage_controller:
-            return
-
-        # Update status label
-        state = self.garage_controller.get_state()
-        state_colors = {
-            "open": "#e74c3c",
-            "closed": "#27ae60",
-            "opening": "#f39c12",
-            "closing": "#f39c12",
-            "unknown": "#95a5a6"
-        }
-        color = state_colors.get(state, "#95a5a6")
-        self.garage_status_label.setText(f"Status: {state.upper()}")
-        self.garage_status_label.setStyleSheet(f"color: {color};")
-
-        # Update last trigger time
-        if self.garage_controller.last_trigger_time:
-            last_time = datetime.fromtimestamp(self.garage_controller.last_trigger_time)
-            self.garage_last_trigger_label.setText(f"Last triggered: {last_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        else:
-            self.garage_last_trigger_label.setText("Last triggered: Never")
-
-        # Update events list
-        events = self.garage_controller.get_recent_events(20)
-        self.garage_events_list.clear()
-        for event in reversed(events):  # Show newest first
-            self.garage_events_list.addItem(event)
-
-    def show_garage(self):
-        """Show garage control screen."""
-        if self.config.garage_enabled:
-            self.update_garage_status()
-            self.stack.setCurrentWidget(self.garage_screen)
-        else:
-            QMessageBox.information(self, "Not Available", "Garage control is not enabled.")
 
     def init_user_screen(self):
         layout = QVBoxLayout()
@@ -787,17 +596,16 @@ class GateWiseUI(QWidget):
         print("[INFO] Lock door triggered")
         QMessageBox.information(self, "Door Action", "Door locked")
     
-    def on_physical_garage_button(self):
-        """Handle physical garage button press."""
-        print("[INFO] Physical garage button pressed - triggering door")
-        if self.garage_controller:
-            self.garage_controller.trigger_door()
+    def unlock_for_class(self):
+        """Unlock door for class with duration from dropdown."""
+        # Get selected duration from dropdown
+        duration_text = self.class_duration_dropdown.currentText()
+        print(f"[INFO] Unlock for class triggered - Duration: {duration_text}")
+        QMessageBox.information(self, "Class Access", f"Door unlocked for class ({duration_text})")
     
     def closeEvent(self, event):
         """Handle window close event - clean up resources."""
         print("[UI] Closing application...")
-        if self.garage_controller:
-            self.garage_controller.cleanup()
         event.accept()
 
 
