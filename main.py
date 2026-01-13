@@ -15,6 +15,7 @@ if __name__ == "__main__":
             port=rfid_port,
             users_file='users.json',
             blackout_file='blackout.json',
+            log_file='rfid_logs.json',
             default_unlock_ms=3000  # 3 seconds default unlock time
         )
         print(f"[MAIN] RFID server running - ESP32 should connect to http://<this_pi_ip>:{rfid_port}/rfid")

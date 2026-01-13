@@ -19,7 +19,38 @@ class RFIDAuthorizationHandler(BaseHTTPRequestHandler):
     # Class variables to be set before server starts
     users_file = "users.json"
     blackout_file = "blackout.json"
+    log_file = "rfid_logs.json"
     default_unlock_duration_ms = 3000  # 3 seconds default
+    
+    def _log_access(self, uid, user_name, authorized, reason=""):
+        """Log RFID access attempt to file."""
+        try:
+            # Load existing logs
+            logs = []
+            if os.path.exists(self.log_file):
+                with open(self.log_file, 'r') as f:
+                    logs = json.load(f)
+            
+            # Add new log entry
+            log_entry = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "uid": uid,
+                "name": user_name,
+                "authorized": authorized,
+                "reason": reason
+            }
+            logs.append(log_entry)
+            
+            # Keep only last 1000 entries
+            if len(logs) > 1000:
+                logs = logs[-1000:]
+            
+            # Save logs
+            with open(self.log_file, 'w') as f:
+                json.dump(logs, f, indent=2)
+                
+        except Exception as e:
+            print(f"[RFID SERVER ERROR] Failed to write log: {e}")
     
     def _set_response(self, status_code=200, content_type="application/json"):
         """Set HTTP response headers."""
@@ -85,7 +116,7 @@ class RFIDAuthorizationHandler(BaseHTTPRequestHandler):
             uid: The RFID UID string
             
         Returns:
-            tuple: (authorized: bool, duration_ms: int)
+            tuple: (authorized: bool, duration_ms: int, user_name: str, reason: str)
         """
         # Load users
         users = self._load_users()
@@ -99,16 +130,18 @@ class RFIDAuthorizationHandler(BaseHTTPRequestHandler):
         
         if not user:
             print(f"[RFID SERVER] UID {uid} not found in users database")
-            return False, 0
+            return False, 0, "Unknown", "UID not registered"
+        
+        user_name = user.get('name', 'Unknown')
         
         # Check blackout schedule
         if self._is_in_blackout():
-            print(f"[RFID SERVER] Access denied for {user.get('name', 'Unknown')} - in blackout period")
-            return False, 0
+            print(f"[RFID SERVER] Access denied for {user_name} - in blackout period")
+            return False, 0, user_name, "Blackout period"
         
         # Authorized!
-        print(f"[RFID SERVER] Access granted for {user.get('name', 'Unknown')} (UID: {uid})")
-        return True, self.default_unlock_duration_ms
+        print(f"[RFID SERVER] Access granted for {user_name} (UID: {uid})")
+        return True, self.default_unlock_duration_ms, user_name, "Access granted"
     
     def do_OPTIONS(self):
         """Handle preflight CORS requests."""
@@ -156,7 +189,10 @@ class RFIDAuthorizationHandler(BaseHTTPRequestHandler):
             print(f"[RFID SERVER] Received authorization request for UID: {uid}")
             
             # Check authorization
-            authorized, duration = self._check_authorization(uid)
+            authorized, duration, user_name, reason = self._check_authorization(uid)
+            
+            # Log this access attempt
+            self._log_access(uid, user_name, authorized, reason)
             
             # Build response
             response = {
@@ -186,7 +222,8 @@ class RFIDAuthServer:
     """RFID Authorization HTTP Server"""
     
     def __init__(self, host='0.0.0.0', port=80, users_file='users.json', 
-                 blackout_file='blackout.json', default_unlock_ms=3000):
+                 blackout_file='blackout.json', log_file='rfid_logs.json', 
+                 default_unlock_ms=3000):
         """
         Initialize RFID authorization server.
         
@@ -195,6 +232,7 @@ class RFIDAuthServer:
             port: Port to listen on (default: 80)
             users_file: Path to users.json
             blackout_file: Path to blackout.json
+            log_file: Path to rfid_logs.json
             default_unlock_ms: Default unlock duration in milliseconds
         """
         self.host = host
@@ -205,6 +243,7 @@ class RFIDAuthServer:
         # Set class variables for handler
         RFIDAuthorizationHandler.users_file = users_file
         RFIDAuthorizationHandler.blackout_file = blackout_file
+        RFIDAuthorizationHandler.log_file = log_file
         RFIDAuthorizationHandler.default_unlock_duration_ms = default_unlock_ms
     
     def start(self):
@@ -239,7 +278,8 @@ class RFIDAuthServer:
 
 
 def start_rfid_server(host='0.0.0.0', port=80, users_file='users.json', 
-                     blackout_file='blackout.json', default_unlock_ms=3000):
+                     blackout_file='blackout.json', log_file='rfid_logs.json',
+                     default_unlock_ms=3000):
     """
     Convenience function to start the RFID authorization server.
     
@@ -248,12 +288,13 @@ def start_rfid_server(host='0.0.0.0', port=80, users_file='users.json',
         port: Port to listen on
         users_file: Path to users.json
         blackout_file: Path to blackout.json
+        log_file: Path to rfid_logs.json
         default_unlock_ms: Default unlock duration
         
     Returns:
         RFIDAuthServer instance
     """
-    server = RFIDAuthServer(host, port, users_file, blackout_file, default_unlock_ms)
+    server = RFIDAuthServer(host, port, users_file, blackout_file, log_file, default_unlock_ms)
     server.start()
     return server
 
