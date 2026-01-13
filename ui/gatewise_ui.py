@@ -40,15 +40,90 @@ class PasswordDialog(QDialog):
         self.setWindowTitle("Enter Admin Password")
         self.setModal(True)
         layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
+        self.password_input.setMinimumHeight(40)
+        self.password_input.setStyleSheet("font-size: 16px; padding: 8px; border-radius: 6px;")
         layout.addWidget(QLabel("Password:"))
         layout.addWidget(self.password_input)
+
+        # On-screen keyboard for touch input
+        keyboard_layout = QGridLayout()
+        keyboard_layout.setSpacing(6)
+
+        rows = [
+            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+            ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+            ["a", "s", "d", "f", "g", "h", "j", "k", "l", "@"],
+            ["z", "x", "c", "v", "b", "n", "m", "_", "-", "."],
+        ]
+
+        def make_key_button(text, col_span=1, row=0, col=0):
+            btn = QPushButton(text)
+            btn.setMinimumHeight(42)
+            btn.setStyleSheet(
+                "QPushButton { background-color: #2c3e50; color: white; font-size: 14px; padding: 10px; border-radius: 6px; }"
+                "QPushButton:hover { background-color: #3b5166; }"
+                "QPushButton:pressed { background-color: #1f2d3a; }"
+            )
+            btn.clicked.connect(lambda _, t=text: self._append_text(t))
+            keyboard_layout.addWidget(btn, row, col, 1, col_span)
+
+        for row_index, keys in enumerate(rows):
+            for col_index, key in enumerate(keys):
+                make_key_button(key, row=row_index, col=col_index)
+
+        # Control keys
+        backspace_btn = QPushButton("Backspace")
+        backspace_btn.setMinimumHeight(42)
+        backspace_btn.setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px; border-radius: 6px; }"
+            "QPushButton:hover { background-color: #95a5a6; }"
+            "QPushButton:pressed { background-color: #6c7a7b; }"
+        )
+        backspace_btn.clicked.connect(self._backspace)
+        keyboard_layout.addWidget(backspace_btn, len(rows), 0, 1, 5)
+
+        clear_btn = QPushButton("Clear")
+        clear_btn.setMinimumHeight(42)
+        clear_btn.setStyleSheet(
+            "QPushButton { background-color: #c0392b; color: white; font-size: 14px; padding: 10px; border-radius: 6px; }"
+            "QPushButton:hover { background-color: #e74c3c; }"
+            "QPushButton:pressed { background-color: #a93226; }"
+        )
+        clear_btn.clicked.connect(self._clear)
+        keyboard_layout.addWidget(clear_btn, len(rows), 5, 1, 2)
+
+        space_btn = QPushButton("Space")
+        space_btn.setMinimumHeight(42)
+        space_btn.setStyleSheet(
+            "QPushButton { background-color: #2c3e50; color: white; font-size: 14px; padding: 10px; border-radius: 6px; }"
+            "QPushButton:hover { background-color: #3b5166; }"
+            "QPushButton:pressed { background-color: #1f2d3a; }"
+        )
+        space_btn.clicked.connect(lambda: self._append_text(" "))
+        keyboard_layout.addWidget(space_btn, len(rows), 7, 1, 3)
+
+        layout.addLayout(keyboard_layout)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.setLayout(layout)
+
+    def _append_text(self, text: str):
+        self.password_input.insert(text)
+
+    def _backspace(self):
+        current = self.password_input.text()
+        self.password_input.setText(current[:-1])
+
+    def _clear(self):
+        self.password_input.clear()
 
     def get_password(self):
         return self.password_input.text()
