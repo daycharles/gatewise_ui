@@ -34,22 +34,6 @@ DOOR_MODULE_IPS = ["192.168.0.75"]  # replace with actual IPs
 DOOR_MODULE_PORT = 80
 
 
-class Toggle(QCheckBox):
-    """Simple Toggle control implemented as a styled QCheckBox.
-
-    Keeps the `stateChanged` signal API used by the rest of the UI.
-    """
-    def __init__(self, label="", parent=None):
-        super().__init__(label, parent)
-        # Basic visual styling; keep small and self-contained so tests/dev UI render.
-        self.setStyleSheet(
-            "QCheckBox { color: white; font-size: 14px; }"
-            "QCheckBox::indicator { width: 44px; height: 24px; border-radius: 12px; }"
-            "QCheckBox::indicator:unchecked { background: #7f8c8d; }"
-            "QCheckBox::indicator:checked { background: #27ae60; }"
-        )
-
-
 class PasswordDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,23 +59,37 @@ class UserDialog(QDialog):
         self.setWindowTitle("User Details")
         self.setModal(True)
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
 
         self.uid_input = QLineEdit()
+        self.uid_input.setStyleSheet("font-size: 16px; padding: 10px; border-radius: 6px;")
         self.name_input = QLineEdit()
+        self.name_input.setStyleSheet("font-size: 16px; padding: 10px; border-radius: 6px;")
         self.admin_check = QCheckBox("Is Admin")
+        self.admin_check.setStyleSheet("font-size: 16px;")
 
-        layout.addWidget(QLabel("UID:"))
+        uid_label = QLabel("UID:")
+        uid_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        layout.addWidget(uid_label)
         layout.addWidget(self.uid_input)
-        layout.addWidget(QLabel("Name:"))
+        
+        name_label = QLabel("Name:")
+        name_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        layout.addWidget(name_label)
         layout.addWidget(self.name_input)
+        
         layout.addWidget(self.admin_check)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.setStyleSheet("QPushButton { font-size: 16px; padding: 10px; min-width: 80px; }")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
         self.setLayout(layout)
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(300)
 
         if user:
             self.uid_input.setText(user['uid'])
@@ -297,81 +295,127 @@ class GateWiseUI(QWidget):
 
     def init_settings_screen(self):
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
         self.settings_screen.setLayout(layout)
 
-        title = QLabel("Settings Panel")
-        title.setFont(QFont("Arial", 16))
+        title = QLabel("Settings")
+        title.setFont(QFont("Arial", 24, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("margin-bottom: 10px;")
         layout.addWidget(title)
 
-        blackout_btn = QPushButton("Blackout Schedule")
+        # Main settings buttons
+        blackout_btn = QPushButton("⏰ Blackout Schedule")
         blackout_btn.clicked.connect(self.show_blackout)
-        user_btn = QPushButton("User Maintenance")
+        user_btn = QPushButton("👥 User Maintenance")
         user_btn.clicked.connect(self.show_user_management)
 
         for btn in (blackout_btn, user_btn):
             btn.setStyleSheet(
-                "QPushButton { background-color: #34495e; color: white; font-size: 16px; padding: 12px; }"
+                "QPushButton { background-color: #34495e; color: white; font-size: 20px; padding: 20px; border-radius: 8px; }"
                 "QPushButton:hover { background-color: #3f5f78; }"
                 "QPushButton:pressed { background-color: #26394a; }"
             )
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            btn.setMinimumHeight(80)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             layout.addWidget(btn)
 
         # Lock Settings Section
-        lock_settings_title = QLabel("Class Access Settings")
-        lock_settings_title.setFont(QFont("Arial", 14))
-        lock_settings_title.setAlignment(Qt.AlignLeft)
-        layout.addWidget(lock_settings_title)
-
+        lock_settings_group = QGroupBox("Class Access Duration")
+        lock_settings_group.setStyleSheet(
+            "QGroupBox { font-size: 18px; font-weight: bold; color: white; border: 2px solid #444; "
+            "border-radius: 8px; margin-top: 20px; padding: 15px; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }"
+        )
+        lock_layout = QVBoxLayout()
+        
         self.class_duration_dropdown = QComboBox()
         self.class_duration_dropdown.addItems(["15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes"])
-        self.class_duration_dropdown.setStyleSheet("background-color: #1e1e1e; color: white; font-size: 14px; padding: 8px;")
-        layout.addWidget(self.class_duration_dropdown)
+        self.class_duration_dropdown.setCurrentIndex(3)  # Default to 60 minutes
+        self.class_duration_dropdown.setStyleSheet(
+            "QComboBox { background-color: #2c3e50; color: white; font-size: 18px; padding: 12px; border-radius: 6px; }"
+            "QComboBox::drop-down { border: none; }"
+            "QComboBox::down-arrow { image: none; border: none; }"
+        )
+        self.class_duration_dropdown.setMinimumHeight(50)
+        lock_layout.addWidget(self.class_duration_dropdown)
+        lock_settings_group.setLayout(lock_layout)
+        layout.addWidget(lock_settings_group)
 
-        back_btn = QPushButton("Back")
+        layout.addStretch()
+
+        back_btn = QPushButton("⬅ Back to Main")
         back_btn.clicked.connect(self.show_main)
-        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 14px; padding: 10px;")
+        back_btn.setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; font-size: 18px; padding: 15px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #95a5a6; }"
+            "QPushButton:pressed { background-color: #6c7a7b; }"
+        )
+        back_btn.setMinimumHeight(60)
         layout.addWidget(back_btn)
 
     def init_log_screen(self):
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
         self.log_screen.setLayout(layout)
-        layout.addWidget(QLabel("RFID Entry Log"))
+        
+        title = QLabel("RFID Entry Log")
+        title.setFont(QFont("Arial", 24, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("margin-bottom: 10px;")
+        layout.addWidget(title)
+        
         self.log_list = QListWidget()
+        self.log_list.setStyleSheet("font-size: 16px; padding: 8px;")
         layout.addWidget(self.log_list)
 
-        back_btn = QPushButton("Back")
+        back_btn = QPushButton("⬅ Back to Main")
         back_btn.clicked.connect(self.show_main)
+        back_btn.setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; font-size: 18px; padding: 15px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #95a5a6; }"
+            "QPushButton:pressed { background-color: #6c7a7b; }"
+        )
+        back_btn.setMinimumHeight(60)
         layout.addWidget(back_btn)
 
     def init_blackout_screen(self):
         layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
         self.blackout_screen.setLayout(layout)
 
         title = QLabel("Blackout Schedule")
-        title.setFont(QFont("Arial", 16))
+        title.setFont(QFont("Arial", 24, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("margin-bottom: 10px;")
         layout.addWidget(title)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         content = QWidget()
         grid = QVBoxLayout()
+        grid.setSpacing(8)
 
         self.blackout_blocks = {}
         self.block_layouts = {}
 
         for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
             group = QGroupBox(day)
-            group.setStyleSheet("QGroupBox { font-weight: bold; border: 1px solid #444; margin-top: 10px; padding: 10px; }")
+            group.setStyleSheet(
+                "QGroupBox { font-weight: bold; font-size: 16px; border: 2px solid #444; "
+                "border-radius: 6px; margin-top: 10px; padding: 10px; }"
+                "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }"
+            )
             group_layout = QVBoxLayout()
             self.blackout_blocks[day] = []
             self.block_layouts[day] = group_layout
 
-            add_btn = QPushButton("Add Time Block")
+            add_btn = QPushButton("+ Add Time Block")
             add_btn.setStyleSheet(
-                "QPushButton { background-color: #2c3e50; color: white; font-size: 16px; padding: 8px; }"
+                "QPushButton { background-color: #2c3e50; color: white; font-size: 14px; padding: 10px; border-radius: 6px; }"
                 "QPushButton:hover { background-color: #3b5166; }"
                 "QPushButton:pressed { background-color: #1f2d3a; }"
             )
@@ -385,19 +429,30 @@ class GateWiseUI(QWidget):
         scroll.setWidget(content)
         layout.addWidget(scroll)
 
-        save_btn = QPushButton("Save Schedule")
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(10)
+
+        save_btn = QPushButton("💾 Save Schedule")
         save_btn.setStyleSheet(
-            "QPushButton { background-color: #27ae60; color: white; font-size: 16px; padding: 10px; }"
+            "QPushButton { background-color: #27ae60; color: white; font-size: 18px; padding: 12px; border-radius: 8px; }"
             "QPushButton:hover { background-color: #2ecc71; }"
             "QPushButton:pressed { background-color: #1f8a4d; }"
         )
+        save_btn.setMinimumHeight(60)
         save_btn.clicked.connect(self.save_blackout_schedule)
-        layout.addWidget(save_btn)
+        buttons_layout.addWidget(save_btn)
 
-        back_btn = QPushButton("Back")
-        back_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-size: 16px; padding: 10px;")
-        back_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.blackout_screen))
-        layout.addWidget(back_btn)
+        back_btn = QPushButton("⬅ Back")
+        back_btn.setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; font-size: 18px; padding: 12px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #95a5a6; }"
+            "QPushButton:pressed { background-color: #6c7a7b; }"
+        )
+        back_btn.setMinimumHeight(60)
+        back_btn.clicked.connect(self.show_settings)
+        buttons_layout.addWidget(back_btn)
+
+        layout.addLayout(buttons_layout)
 
         self.load_blackout_schedule()
 
@@ -475,11 +530,14 @@ class GateWiseUI(QWidget):
 
     def init_user_screen(self):
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
         self.user_screen.setLayout(layout)
 
         title = QLabel("User Maintenance")
-        title.setFont(QFont("Arial", 16))
+        title.setFont(QFont("Arial", 24, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("margin-bottom: 10px;")
         layout.addWidget(title)
 
         self.user_list_widget = QVBoxLayout()
@@ -491,29 +549,27 @@ class GateWiseUI(QWidget):
         layout.addWidget(scroll)
 
         buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(10)
 
-        add_user_btn = QPushButton("Add User")
+        add_user_btn = QPushButton("➕ Add User")
         add_user_btn.setStyleSheet(
-            "QPushButton { background-color: #2980b9; color: white; font-size: 16px; padding: 10px; }"
+            "QPushButton { background-color: #2980b9; color: white; font-size: 18px; padding: 12px; border-radius: 8px; }"
             "QPushButton:hover { background-color: #3498db; }"
             "QPushButton:pressed { background-color: #1f6691; }"
         )
+        add_user_btn.setMinimumHeight(60)
         add_user_btn.clicked.connect(self.add_user_dialog)
         buttons_layout.addWidget(add_user_btn)
 
-        push_btn = QPushButton("Push to Doors")
-        push_btn.setStyleSheet(
-            "QPushButton { background-color: #27ae60; color: white; font-size: 16px; padding: 10px; }"
-            "QPushButton:hover { background-color: #2ecc71; }"
-            "QPushButton:pressed { background-color: #1f8a4d; }"
+        back_btn = QPushButton("⬅ Back")
+        back_btn.setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; font-size: 18px; padding: 12px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #95a5a6; }"
+            "QPushButton:pressed { background-color: #6c7a7b; }"
         )
-        push_btn.clicked.connect(self.push_to_door_modules)
-        buttons_layout.addWidget(push_btn)
-
-        self.auto_sync_toggle = Toggle("Enable Auto-Sync")
-        self.auto_sync_toggle.setChecked(False)
-        self.auto_sync_toggle.stateChanged.connect(self.toggle_auto_sync)
-        buttons_layout.addWidget(self.auto_sync_toggle)
+        back_btn.setMinimumHeight(60)
+        back_btn.clicked.connect(self.show_settings)
+        buttons_layout.addWidget(back_btn)
 
         layout.addLayout(buttons_layout)
 
@@ -534,17 +590,40 @@ class GateWiseUI(QWidget):
 
         for user in self.users:
             group = QGroupBox()
+            group.setStyleSheet(
+                "QGroupBox { background-color: #34495e; border: 1px solid #555; "
+                "border-radius: 6px; padding: 8px; margin: 4px; }"
+            )
             layout = QHBoxLayout()
-            layout.addWidget(QLabel(f"UID: {user['uid']}"))
-            layout.addWidget(QLabel(f"Name: {user['name']}"))
-            layout.addWidget(QLabel(f"Admin: {'Yes' if user['isAdmin'] else 'No'}"))
+            
+            uid_label = QLabel(f"UID: {user['uid']}")
+            uid_label.setStyleSheet("font-size: 14px; color: #ecf0f1;")
+            layout.addWidget(uid_label)
+            
+            name_label = QLabel(f"Name: {user['name']}")
+            name_label.setStyleSheet("font-size: 14px; color: #ecf0f1; font-weight: bold;")
+            layout.addWidget(name_label)
+            
+            admin_label = QLabel(f"Admin: {'Yes' if user['isAdmin'] else 'No'}")
+            admin_label.setStyleSheet("font-size: 14px; color: #ecf0f1;")
+            layout.addWidget(admin_label)
 
             edit_btn = QPushButton("✎")
-            edit_btn.setFixedSize(40, 40)
+            edit_btn.setFixedSize(45, 45)
+            edit_btn.setStyleSheet(
+                "QPushButton { background-color: #3498db; color: white; font-size: 18px; border-radius: 6px; }"
+                "QPushButton:hover { background-color: #5dade2; }"
+                "QPushButton:pressed { background-color: #2874a6; }"
+            )
             edit_btn.clicked.connect(lambda _, u=user: self.edit_user_dialog(u))
 
             del_btn = QPushButton("🗑")
-            del_btn.setFixedSize(40, 40)
+            del_btn.setFixedSize(45, 45)
+            del_btn.setStyleSheet(
+                "QPushButton { background-color: #e74c3c; color: white; font-size: 18px; border-radius: 6px; }"
+                "QPushButton:hover { background-color: #ec7063; }"
+                "QPushButton:pressed { background-color: #c0392b; }"
+            )
             del_btn.clicked.connect(lambda _, u=user: self.delete_user(u))
 
             layout.addWidget(edit_btn)
@@ -591,44 +670,6 @@ class GateWiseUI(QWidget):
         with open("users.json", "w") as f:
             json.dump(self.users, f, indent=4)
         self.set_status("Users saved")
-        if getattr(self, "auto_sync_enabled", False):
-            # trigger a non-blocking push so GUI stays responsive
-            self.push_to_door_modules()
-
-    def toggle_auto_sync(self, state):
-        """Enable/disable automatic syncing when user lists change."""
-        self.auto_sync_enabled = bool(state)
-
-    def push_to_door_modules(self):
-        """Send the current `self.users` to each door module.
-
-        This call is non-blocking: it spawns a background thread to perform network I/O.
-        The payload is JSON: {"users": [...]}
-        """
-        users_payload = {
-            "users": self.users
-        }
-
-        def _worker(payload, hosts, port):
-            data = json.dumps(payload).encode("utf-8")
-            for host in hosts:
-                try:
-                    with socket.create_connection((host, port), timeout=5) as s:
-                        s.sendall(data)
-                        # optional small ACK read (non-blocking, best-effort)
-                        try:
-                            s.settimeout(1.0)
-                            _ = s.recv(1024)
-                        except Exception:
-                            pass
-                    print(f"[INFO] Pushed users to {host}:{port}")
-                except Exception as e:
-                    print(f"[WARN] Failed to push to {host}:{port} - {e}")
-
-        hosts = DOOR_MODULE_IPS.copy()
-        t = threading.Thread(target=_worker, args=(users_payload, hosts, DOOR_MODULE_PORT), daemon=True)
-        t.start()
-        self.set_status("Pushing users to door modules...")
 
     def request_password(self):
         dlg = PasswordDialog(self)
