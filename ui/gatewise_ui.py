@@ -822,5 +822,5 @@ class GateWiseUI(QWidget):
 def launch_ui():
     app = QApplication(sys.argv)
     window = GateWiseUI()
-    window.show()
+    window.showFullScreen()
     sys.exit(app.exec_())
