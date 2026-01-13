@@ -356,6 +356,20 @@ class GateWiseUI(QWidget):
 
         layout.addStretch()
 
+        # System control buttons
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(10)
+
+        shutdown_btn = QPushButton("Shutdown System")
+        shutdown_btn.clicked.connect(self.shutdown_system)
+        shutdown_btn.setStyleSheet(
+            "QPushButton { background-color: #c0392b; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #e74c3c; }"
+            "QPushButton:pressed { background-color: #a93226; }"
+        )
+        shutdown_btn.setMinimumHeight(55)
+        buttons_layout.addWidget(shutdown_btn)
+
         back_btn = QPushButton("< Back to Main")
         back_btn.clicked.connect(self.show_main)
         back_btn.setStyleSheet(
@@ -364,7 +378,9 @@ class GateWiseUI(QWidget):
             "QPushButton:pressed { background-color: #6c7a7b; }"
         )
         back_btn.setMinimumHeight(55)
-        layout.addWidget(back_btn)
+        buttons_layout.addWidget(back_btn)
+
+        layout.addLayout(buttons_layout)
 
     def init_log_screen(self):
         layout = QVBoxLayout()
@@ -751,6 +767,37 @@ class GateWiseUI(QWidget):
         if dlg.exec_():
             if dlg.get_password() == "admin":
                 self.show_settings()
+
+    def shutdown_system(self):
+        """Shutdown the Raspberry Pi system with confirmation."""
+        reply = QMessageBox.question(
+            self,
+            "Confirm Shutdown",
+            "Are you sure you want to shut down the system?\n\nThis will power off the Raspberry Pi.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No  # Default to No for safety
+        )
+        
+        if reply == QMessageBox.Yes:
+            print("[SYSTEM] Shutting down...")
+            self.set_status("Shutting down system...")
+            
+            # Close the application gracefully
+            QApplication.processEvents()
+            
+            # Execute shutdown command
+            try:
+                if sys.platform.startswith('linux'):
+                    # On Raspberry Pi/Linux
+                    os.system('sudo shutdown -h now')
+                elif sys.platform == 'win32':
+                    # On Windows (for testing)
+                    print("[SYSTEM] Would execute: shutdown /s /t 0")
+                    QMessageBox.information(self, "Test Mode", "Shutdown command would execute on Raspberry Pi")
+                else:
+                    QMessageBox.warning(self, "Error", "Shutdown not supported on this platform")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to shutdown: {e}")
 
     def show_main(self):
         self.stack.setCurrentWidget(self.main_screen)
