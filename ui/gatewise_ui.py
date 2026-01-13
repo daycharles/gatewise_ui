@@ -14,22 +14,24 @@ from PySide6.QtCore import Qt, QTimer, QDateTime, QSize, QTime
 
 # Attempt to import MFRC522 RFID reader. If not present (e.g., running on Windows),
 # fall back gracefully so the UI can run without hardware.
-try:
-    from mfrc522 import SimpleMFRC522
-    try:
-        reader = SimpleMFRC522()
-        RFID_AVAILABLE = True
-    except Exception:
-        reader = None
-        RFID_AVAILABLE = False
-        print("[WARNING] MFRC522 present but failed to initialize. RFID scanning disabled.")
-except Exception:
-    reader = None
-    RFID_AVAILABLE = False
-    print("[WARNING] MFRC522 not available. RFID scanning will be disabled.")
+# try:
+#     from mfrc522 import SimpleMFRC522
+#     try:
+#         reader = SimpleMFRC522()
+#         RFID_AVAILABLE = True
+#     except Exception:
+#         reader = None
+#         RFID_AVAILABLE = False
+#         print("[WARNING] MFRC522 present but failed to initialize. RFID scanning disabled.")
+# except Exception:
+#     reader = None
+#     RFID_AVAILABLE = False
+#     print("[WARNING] MFRC522 not available. RFID scanning will be disabled.")
 
-DOOR_MODULE_IPS = ["192.168.0.51"]  # replace with actual IPs
-DOOR_MODULE_PORT = 5006
+
+
+DOOR_MODULE_IPS = ["192.168.0.75"]  # replace with actual IPs
+DOOR_MODULE_PORT = 80
 
 
 class Toggle(QCheckBox):
@@ -157,6 +159,69 @@ class GateWiseUI(QWidget):
         main_layout.addWidget(self.stack)
         main_layout.addLayout(self.init_action_bar())
 
+        # Status label for quick feedback on button presses
+        self.status_label = QLabel("Ready")
+        self.status_label.setAlignment(Qt.AlignLeft)
+        self.status_label.setStyleSheet("padding: 6px 10px; color: #d0dbe7; font-size: 12px; background: #1f2d3a;")
+        main_layout.addWidget(self.status_label)
+
+    def set_status(self, message: str):
+        """Update footer status text."""
+        if hasattr(self, "status_label"):
+            self.status_label.setText(message)
+
+    def unlock_door(self, duration_ms: int):
+        """Send unlock request to door module via HTTP POST."""
+        payload = {"duration": duration_ms}
+        self._send_http_request("unlock", payload)
+        self.set_status(f"Door unlocked for {duration_ms / 1000:.1f}s")
+
+    def lock_door(self):
+        """Send lock request to door module via HTTP POST."""
+        payload = {}
+        self._send_http_request("lock", payload)
+        self.set_status("Door locked")
+
+    def _send_http_request(self, endpoint: str, payload: dict):
+        """Send HTTP POST request to door module in background thread."""
+        def _worker(ep, data, hosts, port):
+            json_data = json.dumps(data).encode("utf-8")
+            for host in hosts:
+                try:
+                    import http.client
+                    conn = http.client.HTTPConnection(host, port, timeout=5)
+                    conn.request("POST", f"/{ep}", json_data, {"Content-Type": "application/json"})
+                    response = conn.getresponse()
+                    response.read()
+                    conn.close()
+                    print(f"[INFO] {ep} request sent to {host}:{port}")
+                except Exception as e:
+                    print(f"[WARN] Failed to send {ep} request to {host}:{port} - {e}")
+
+        hosts = DOOR_MODULE_IPS.copy()
+        t = threading.Thread(target=_worker, args=(endpoint, payload, hosts, DOOR_MODULE_PORT), daemon=True)
+        t.start()
+
+    def on_unlock_clicked(self):
+        """Handle unlock button: unlock for 3 seconds."""
+        self.unlock_door(3000)
+
+    def on_lock_clicked(self):
+        """Handle lock button: lock the door."""
+        self.lock_door()
+
+    def on_class_unlock_clicked(self):
+        """Handle class unlock button: unlock for duration from dropdown."""
+        # Parse duration from dropdown text (e.g., "60 minutes" -> 60)
+        duration_text = self.class_duration_dropdown.currentText()
+        try:
+            duration_minutes = int(duration_text.split()[0])
+            duration_ms = duration_minutes * 60 * 1000
+            self.unlock_door(duration_ms)
+        except (ValueError, IndexError):
+            print(f"[ERROR] Failed to parse duration from '{duration_text}'")
+            self.set_status("Error parsing class duration")
+
     def init_main_screen(self):
         layout = QVBoxLayout()
         self.main_screen.setLayout(layout)
@@ -203,21 +268,28 @@ class GateWiseUI(QWidget):
             unlock_btn.setIcon(QIcon(self.unlock_icon_path))
         unlock_btn.setIconSize(QSize(48, 48))
         unlock_btn.setToolTip("Unlock")
+        unlock_btn.clicked.connect(self.on_unlock_clicked)
 
         lock_btn = QPushButton()
         if os.path.exists(self.lock_icon_path):
             lock_btn.setIcon(QIcon(self.lock_icon_path))
         lock_btn.setIconSize(QSize(48, 48))
         lock_btn.setToolTip("Lock")
+        lock_btn.clicked.connect(self.on_lock_clicked)
 
         class_btn = QPushButton()
         if os.path.exists(self.class_icon_path):
             class_btn.setIcon(QIcon(self.class_icon_path))
         class_btn.setIconSize(QSize(48, 48))
         class_btn.setToolTip("Unlock for Class")
+        class_btn.clicked.connect(self.on_class_unlock_clicked)
 
         for btn in (unlock_btn, lock_btn, class_btn):
-            btn.setStyleSheet("background-color: #2c3e50; color: white; padding: 10px; border-radius: 10px;")
+            btn.setStyleSheet(
+                "QPushButton { background-color: #2c3e50; color: white; padding: 10px; border-radius: 10px; }"
+                "QPushButton:hover { background-color: #3b5166; }"
+                "QPushButton:pressed { background-color: #1f2d3a; }"
+            )
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             btn_layout.addWidget(btn)
 
@@ -238,7 +310,11 @@ class GateWiseUI(QWidget):
         user_btn.clicked.connect(self.show_user_management)
 
         for btn in (blackout_btn, user_btn):
-            btn.setStyleSheet("background-color: #34495e; color: white; font-size: 16px; padding: 12px;")
+            btn.setStyleSheet(
+                "QPushButton { background-color: #34495e; color: white; font-size: 16px; padding: 12px; }"
+                "QPushButton:hover { background-color: #3f5f78; }"
+                "QPushButton:pressed { background-color: #26394a; }"
+            )
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             layout.addWidget(btn)
 
@@ -294,7 +370,11 @@ class GateWiseUI(QWidget):
             self.block_layouts[day] = group_layout
 
             add_btn = QPushButton("Add Time Block")
-            add_btn.setStyleSheet("background-color: #2c3e50; color: white; font-size: 16px; padding: 8px;")
+            add_btn.setStyleSheet(
+                "QPushButton { background-color: #2c3e50; color: white; font-size: 16px; padding: 8px; }"
+                "QPushButton:hover { background-color: #3b5166; }"
+                "QPushButton:pressed { background-color: #1f2d3a; }"
+            )
             add_btn.clicked.connect(lambda _, d=day: self.add_time_block(d))
 
             group_layout.addWidget(add_btn)
@@ -306,7 +386,11 @@ class GateWiseUI(QWidget):
         layout.addWidget(scroll)
 
         save_btn = QPushButton("Save Schedule")
-        save_btn.setStyleSheet("background-color: #27ae60; color: white; font-size: 16px; padding: 10px;")
+        save_btn.setStyleSheet(
+            "QPushButton { background-color: #27ae60; color: white; font-size: 16px; padding: 10px; }"
+            "QPushButton:hover { background-color: #2ecc71; }"
+            "QPushButton:pressed { background-color: #1f8a4d; }"
+        )
         save_btn.clicked.connect(self.save_blackout_schedule)
         layout.addWidget(save_btn)
 
@@ -371,6 +455,7 @@ class GateWiseUI(QWidget):
         with open("blackout.json", "w") as f:
             json.dump(data, f, indent=4)
         QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
+        self.set_status("Blackout schedule saved")
 
     def load_blackout_schedule(self):
         if not os.path.exists("blackout.json"):
@@ -408,12 +493,20 @@ class GateWiseUI(QWidget):
         buttons_layout = QHBoxLayout()
 
         add_user_btn = QPushButton("Add User")
-        add_user_btn.setStyleSheet("background-color: #2980b9; color: white; font-size: 16px; padding: 10px;")
+        add_user_btn.setStyleSheet(
+            "QPushButton { background-color: #2980b9; color: white; font-size: 16px; padding: 10px; }"
+            "QPushButton:hover { background-color: #3498db; }"
+            "QPushButton:pressed { background-color: #1f6691; }"
+        )
         add_user_btn.clicked.connect(self.add_user_dialog)
         buttons_layout.addWidget(add_user_btn)
 
         push_btn = QPushButton("Push to Doors")
-        push_btn.setStyleSheet("background-color: #27ae60; color: white; font-size: 16px; padding: 10px;")
+        push_btn.setStyleSheet(
+            "QPushButton { background-color: #27ae60; color: white; font-size: 16px; padding: 10px; }"
+            "QPushButton:hover { background-color: #2ecc71; }"
+            "QPushButton:pressed { background-color: #1f8a4d; }"
+        )
         push_btn.clicked.connect(self.push_to_door_modules)
         buttons_layout.addWidget(push_btn)
 
@@ -497,6 +590,7 @@ class GateWiseUI(QWidget):
     def save_users(self):
         with open("users.json", "w") as f:
             json.dump(self.users, f, indent=4)
+        self.set_status("Users saved")
         if getattr(self, "auto_sync_enabled", False):
             # trigger a non-blocking push so GUI stays responsive
             self.push_to_door_modules()
@@ -534,6 +628,7 @@ class GateWiseUI(QWidget):
         hosts = DOOR_MODULE_IPS.copy()
         t = threading.Thread(target=_worker, args=(users_payload, hosts, DOOR_MODULE_PORT), daemon=True)
         t.start()
+        self.set_status("Pushing users to door modules...")
 
     def request_password(self):
         dlg = PasswordDialog(self)
@@ -546,15 +641,19 @@ class GateWiseUI(QWidget):
 
     def show_logs(self):
         self.stack.setCurrentWidget(self.log_screen)
+        self.set_status("Viewing logs")
 
     def show_settings(self):
         self.stack.setCurrentWidget(self.settings_screen)
+        self.set_status("Settings opened")
 
     def show_blackout(self):
         self.stack.setCurrentWidget(self.blackout_screen)
+        self.set_status("Blackout schedule")
 
     def show_user_management(self):
         self.stack.setCurrentWidget(self.user_screen)
+        self.set_status("User maintenance")
 
 def launch_ui():
     app = QApplication(sys.argv)

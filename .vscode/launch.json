@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug GateWise",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "env": {
+        "GATEWISE_ADMIN_PASSWORD": "admin",
+        "RFID_SERVER_PORT": "8080"
+      }
+    },
+    {
+      "name": "Debug RFID Server Only",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/core/rfid_server.py",
+      "args": ["8080"],
+      "console": "integratedTerminal",
+      "env": {
+        "RFID_SERVER_PORT": "8080"
+      }
+    }
+  ]
+}
