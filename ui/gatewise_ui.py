@@ -255,6 +255,12 @@ class GateWiseUI(QWidget):
         self._send_http_request("lock", payload)
         self.set_status("Door locked")
 
+    def exit_to_desktop(self):
+        """Close the application and return to desktop."""
+        app = QApplication.instance()
+        if app:
+            app.quit()
+
     def _send_http_request(self, endpoint: str, payload: dict):
         """Send HTTP POST request to door module in background thread."""
         def _worker(ep, data, hosts, port):
@@ -444,6 +450,16 @@ class GateWiseUI(QWidget):
         )
         shutdown_btn.setMinimumHeight(55)
         buttons_layout.addWidget(shutdown_btn)
+
+        exit_btn = QPushButton("Exit to Desktop")
+        exit_btn.clicked.connect(self.exit_to_desktop)
+        exit_btn.setStyleSheet(
+            "QPushButton { background-color: #34495e; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
+            "QPushButton:hover { background-color: #3f5f78; }"
+            "QPushButton:pressed { background-color: #26394a; }"
+        )
+        exit_btn.setMinimumHeight(55)
+        buttons_layout.addWidget(exit_btn)
 
         back_btn = QPushButton("< Back to Main")
         back_btn.clicked.connect(self.show_main)
