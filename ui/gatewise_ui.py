@@ -205,8 +205,18 @@ class GateWiseUI(QWidget):
         self.unlock_door(3000)
 
     def on_lock_clicked(self):
-        """Handle lock button: lock the door."""
-        self.lock_door()
+        """Handle lock button: lock the door with confirmation."""
+        # Show confirmation dialog
+        reply = QMessageBox.question(
+            self,
+            "Confirm Lock",
+            "Are you sure you want to lock the door?\n\nThis will override any active unlock duration.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No  # Default to No for safety
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.lock_door()
 
     def on_class_unlock_clicked(self):
         """Handle class unlock button: unlock for duration from dropdown."""
