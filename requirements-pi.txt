@@ -1,5 +1,6 @@
-# Pi-specific requirements: exclude PyQt5 (installed via apt)
-# Install these into the venv after creating it with --system-site-packages
+# Pi-specific requirements: install these into the venv
+# PySide6 works better on Raspberry Pi than PyQt5
+PySide6>=6.4.0
 mfrc522
 spidev
 RPi.GPIO

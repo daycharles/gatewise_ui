@@ -3,14 +3,14 @@ import os
 import json
 import threading
 import socket
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
     QDialogButtonBox, QGridLayout, QComboBox, QScrollArea, QGroupBox, QTimeEdit,
     QMessageBox, QCheckBox
 )
-from PyQt5.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
-from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QTime
+from PySide6.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
+from PySide6.QtCore import Qt, QTimer, QDateTime, QSize, QTime
 
 # Attempt to import MFRC522 RFID reader. If not present (e.g., running on Windows),
 # fall back gracefully so the UI can run without hardware.
