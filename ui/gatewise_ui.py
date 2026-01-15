@@ -7,10 +7,11 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QListWidget, QSizePolicy, QStackedWidget, QLineEdit, QDialog,
     QDialogButtonBox, QGridLayout, QComboBox, QScrollArea, QGroupBox, QTimeEdit,
-    QMessageBox, QCheckBox
+    QMessageBox, QCheckBox, QFrame
 )
 from PySide6.QtGui import QPixmap, QFont, QIcon, QPalette, QColor
-from PySide6.QtCore import Qt, QTimer, QDateTime, QSize, QTime
+from PySide6.QtCore import Qt, QTimer, QDateTime, QSize, QTime, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QRect
 
 # Attempt to import MFRC522 RFID reader. If not present (e.g., running on Windows),
 # fall back gracefully so the UI can run without hardware.
@@ -194,10 +195,18 @@ class UserDialog(QDialog):
 class GateWiseUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GateWise Access Control")
+        self.setWindowTitle("GateWise Access Control - Power Alley CrossFit")
         self.setGeometry(100, 100, 800, 480)
 
-        self.primary_color = "#355265"
+        # Color scheme - Industrial dark mode
+        self.BG_DARK = "#1A1A1A"
+        self.BG_DARKER = "#0D0D0D"
+        self.COLOR_UNLOCK = "#4CAF50"  # Safety Green
+        self.COLOR_LOCK = "#F44336"    # Alert Red
+        self.COLOR_SECONDARY = "#2196F3"  # Primary Blue
+        self.COLOR_TEXT = "#FFFFFF"
+        self.COLOR_TEXT_DIM = "#B0B0B0"
+        
         self.logo_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "Gatewise.PNG")
         self.logs_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "logs-white.png")
         self.settings_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "config_white.png")
@@ -205,11 +214,17 @@ class GateWiseUI(QWidget):
         self.lock_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "lock_white.png")
         self.class_icon_path = os.path.join(os.path.dirname(__file__), "..", "resources", "icons", "unlock_for_class.png")
 
-        self.setStyleSheet(f"background-color: {self.primary_color}; color: white;")
+        # Apply global stylesheet with Roboto Condensed/Inter
+        self.setStyleSheet(self._get_global_stylesheet())
 
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         self.setLayout(main_layout)
 
+        # Header (persistent)
+        main_layout.addLayout(self._create_header_layout())
+        
         self.stack = QStackedWidget()
         self.main_screen = QWidget()
         self.settings_screen = QWidget()
@@ -229,31 +244,196 @@ class GateWiseUI(QWidget):
         self.stack.addWidget(self.blackout_screen)
         self.stack.addWidget(self.user_screen)
 
-        main_layout.addWidget(self.stack)
-        main_layout.addLayout(self.init_action_bar())
+        main_layout.addWidget(self.stack, 1)
 
-        # Status label for quick feedback on button presses
+        # Footer status bar
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(12, 8, 12, 8)
+        footer_layout.setSpacing(10)
+        
+        self.status_indicator = QFrame()
+        self.status_indicator.setFixedSize(16, 16)
+        self.status_indicator.setStyleSheet(f"background-color: {self.COLOR_LOCK}; border-radius: 8px;")
+        footer_layout.addWidget(self.status_indicator)
+        
         self.status_label = QLabel("Ready")
-        self.status_label.setAlignment(Qt.AlignLeft)
-        self.status_label.setStyleSheet("padding: 6px 10px; color: #d0dbe7; font-size: 12px; background: #1f2d3a;")
-        main_layout.addWidget(self.status_label)
+        self.status_label.setStyleSheet(f"color: {self.COLOR_TEXT_DIM}; font-size: 12px;")
+        footer_layout.addWidget(self.status_label, 1)
+        
+        footer = QFrame()
+        footer.setStyleSheet(f"background-color: {self.BG_DARKER}; border-top: 1px solid #333;")
+        footer.setLayout(footer_layout)
+        footer.setFixedHeight(40)
+        main_layout.addWidget(footer)
+    
+    def _get_global_stylesheet(self):
+        """Return global stylesheet with modern design system."""
+        return f"""
+        * {{
+            background-color: {self.BG_DARK};
+            color: {self.COLOR_TEXT};
+            font-family: 'Roboto Condensed', 'Inter', sans-serif;
+            font-size: 14px;
+        }}
+        
+        QPushButton {{
+            background-color: #2A2A2A;
+            color: {self.COLOR_TEXT};
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: 500;
+            min-height: 48px;
+            min-width: 48px;
+        }}
+        
+        QPushButton:hover {{
+            background-color: #3A3A3A;
+            border: 1px solid #555;
+        }}
+        
+        QPushButton:pressed {{
+            background-color: #1A1A1A;
+            border: 1px solid #333;
+        }}
+        
+        QPushButton:disabled {{
+            color: #666;
+            background-color: #1A1A1A;
+        }}
+        
+        QLabel {{
+            background-color: transparent;
+        }}
+        
+        QComboBox, QLineEdit, QTimeEdit {{
+            background-color: #2A2A2A;
+            color: {self.COLOR_TEXT};
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 8px;
+            min-height: 40px;
+        }}
+        
+        QGroupBox {{
+            color: {self.COLOR_TEXT};
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding-top: 10px;
+        }}
+        
+        QListWidget {{
+            background-color: #2A2A2A;
+            color: {self.COLOR_TEXT};
+            border: 1px solid #444;
+            border-radius: 6px;
+        }}
+        """
+    
+    def _create_header_layout(self):
+        """Create persistent header with title and status."""
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(16, 12, 16, 12)
+        header_layout.setSpacing(16)
+        
+        title_label = QLabel("POWER ALLEY CROSSFIT")
+        title_font = QFont("Roboto Condensed", 24, QFont.Bold)
+        title_label.setFont(title_font)
+        title_label.setStyleSheet(f"color: {self.COLOR_TEXT};")
+        header_layout.addWidget(title_label, 1)
+        
+        # Lock status indicator
+        self.lock_status_frame = QFrame()
+        self.lock_status_frame.setFixedHeight(48)
+        self.lock_status_frame.setMinimumWidth(120)
+        self.update_lock_status_display("locked")
+        header_layout.addWidget(self.lock_status_frame)
+        
+        header_frame = QFrame()
+        header_frame.setStyleSheet(f"background-color: {self.BG_DARKER}; border-bottom: 2px solid #333;")
+        header_frame.setLayout(header_layout)
+        header_frame.setFixedHeight(72)
+        
+        container = QVBoxLayout()
+        container.setContentsMargins(0, 0, 0, 0)
+        container.addWidget(header_frame)
+        
+        return container
+    
+    def update_lock_status_display(self, status):
+        """Update the lock status indicator in header and main alert box."""
+        # Update header indicator
+        for i in reversed(range(self.lock_status_frame.layout().count() if self.lock_status_frame.layout() else 0)):
+            self.lock_status_frame.layout().itemAt(i).widget().setParent(None)
+        
+        layout = QHBoxLayout()
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(8)
+        
+        if status == "locked":
+            indicator = QFrame()
+            indicator.setFixedSize(20, 20)
+            indicator.setStyleSheet(f"background-color: {self.COLOR_LOCK}; border-radius: 10px;")
+            layout.addWidget(indicator)
+            text = QLabel("🔒 LOCKED")
+            text.setStyleSheet(f"color: {self.COLOR_LOCK}; font-weight: bold;")
+        else:
+            indicator = QFrame()
+            indicator.setFixedSize(20, 20)
+            indicator.setStyleSheet(f"background-color: {self.COLOR_UNLOCK}; border-radius: 10px;")
+            layout.addWidget(indicator)
+            text = QLabel("🔓 UNLOCKED")
+            text.setStyleSheet(f"color: {self.COLOR_UNLOCK}; font-weight: bold;")
+        
+        layout.addWidget(text)
+        layout.addStretch()
+        
+        self.lock_status_frame.setLayout(layout)
+        self.lock_status_frame.setStyleSheet(f"background-color: {self.BG_DARKER}; border-radius: 8px; border: 1px solid #444;")
+        
+        # Update main screen alert box
+        if hasattr(self, 'lock_status_alert'):
+            if status == "locked":
+                self.lock_status_alert.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {self.COLOR_LOCK};
+                        border-radius: 10px;
+                        padding: 16px;
+                    }}
+                """)
+                self.lock_status_label.setText("LOCKED")
+                self.lock_status_subtext.setText("ALERT")
+            else:
+                self.lock_status_alert.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {self.COLOR_UNLOCK};
+                        border-radius: 10px;
+                        padding: 16px;
+                    }}
+                """)
+                self.lock_status_label.setText("UNLOCKED")
+                self.lock_status_subtext.setText("ACCESS GRANTED")
+    
 
-    def set_status(self, message: str):
-        """Update footer status text."""
+    def set_status(self, message: str, is_locked: bool = None):
+        """Update footer status text and lock indicator."""
         if hasattr(self, "status_label"):
             self.status_label.setText(message)
+        if is_locked is not None:
+            status = "locked" if is_locked else "unlocked"
+            self.update_lock_status_display(status)
 
     def unlock_door(self, duration_ms: int):
         """Send unlock request to door module via HTTP POST."""
         payload = {"duration": duration_ms}
         self._send_http_request("unlock", payload)
-        self.set_status(f"Door unlocked for {duration_ms / 1000:.1f}s")
+        self.set_status(f"🔓 Door unlocked for {duration_ms / 1000:.1f}s", is_locked=False)
 
     def lock_door(self):
         """Send lock request to door module via HTTP POST."""
         payload = {}
         self._send_http_request("lock", payload)
-        self.set_status("Door locked")
+        self.set_status("🔒 Door locked", is_locked=True)
 
     def exit_to_desktop(self):
         """Close the application and return to desktop."""
@@ -284,6 +464,7 @@ class GateWiseUI(QWidget):
     def on_unlock_clicked(self):
         """Handle unlock button: unlock for 3 seconds."""
         self.unlock_door(3000)
+        self.show_rfid_scan_event("Manual Unlock")
 
     def on_lock_clicked(self):
         """Handle lock button: lock the door with confirmation."""
@@ -307,129 +488,264 @@ class GateWiseUI(QWidget):
             duration_minutes = int(duration_text.split()[0])
             duration_ms = duration_minutes * 60 * 1000
             self.unlock_door(duration_ms)
+            self.show_rfid_scan_event("Class Unlock")
         except (ValueError, IndexError):
             print(f"[ERROR] Failed to parse duration from '{duration_text}'")
             self.set_status("Error parsing class duration")
 
     def init_main_screen(self):
+        """Initialize main screen with status alert and 2x2 button grid."""
         layout = QVBoxLayout()
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
         self.main_screen.setLayout(layout)
 
-        logo_label = QLabel()
-        logo_label.setAlignment(Qt.AlignCenter)
-        if os.path.exists(self.logo_path):
-            pixmap = QPixmap(self.logo_path)
-            logo_label.setPixmap(pixmap.scaledToHeight(60, Qt.SmoothTransformation))
+        # Lock Status Alert Box (large, prominent)
+        self.lock_status_alert = QFrame()
+        self.lock_status_alert.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLOR_LOCK};
+                border-radius: 10px;
+                padding: 16px;
+            }}
+        """)
+        self.lock_status_alert.setFixedHeight(80)
+        lock_alert_layout = QHBoxLayout()
+        lock_alert_layout.setContentsMargins(16, 8, 16, 8)
+        lock_alert_layout.setSpacing(16)
+        
+        lock_icon = QLabel("🔒")
+        lock_icon.setFont(QFont("Arial", 36))
+        lock_alert_layout.addWidget(lock_icon)
+        
+        self.lock_status_label = QLabel("LOCKED")
+        self.lock_status_label.setFont(QFont("Roboto Condensed", 28, QFont.Bold))
+        self.lock_status_label.setStyleSheet(f"color: #000000;")
+        lock_alert_layout.addWidget(self.lock_status_label)
+        
+        self.lock_status_subtext = QLabel("ALERT")
+        self.lock_status_subtext.setFont(QFont("Roboto Condensed", 14))
+        self.lock_status_subtext.setStyleSheet(f"color: #000000;")
+        lock_alert_layout.addWidget(self.lock_status_subtext)
+        lock_alert_layout.addStretch()
+        
+        self.lock_status_alert.setLayout(lock_alert_layout)
+        layout.addWidget(self.lock_status_alert)
+
+        # RFID Scan Event Display (hidden by default, shown for 10 seconds on scan)
+        self.scan_event_frame = QFrame()
+        self.scan_event_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self.COLOR_SECONDARY};
+                border-radius: 10px;
+                padding: 16px;
+            }}
+        """)
+        self.scan_event_frame.setFixedHeight(80)
+        scan_layout = QHBoxLayout()
+        scan_layout.setContentsMargins(16, 8, 16, 8)
+        scan_layout.setSpacing(16)
+        
+        scan_icon = QLabel("✓")
+        scan_icon.setFont(QFont("Arial", 36))
+        scan_icon.setStyleSheet("color: #FFFFFF;")
+        scan_layout.addWidget(scan_icon)
+        
+        self.scan_name_label = QLabel("Guest User")
+        self.scan_name_label.setFont(QFont("Roboto Condensed", 24, QFont.Bold))
+        self.scan_name_label.setStyleSheet("color: #FFFFFF;")
+        scan_layout.addWidget(self.scan_name_label)
+        
+        self.scan_time_label = QLabel("Just now")
+        self.scan_time_label.setFont(QFont("Roboto Condensed", 14))
+        self.scan_time_label.setStyleSheet("color: #FFFFFF;")
+        scan_layout.addWidget(self.scan_time_label)
+        scan_layout.addStretch()
+        
+        self.scan_event_frame.setLayout(scan_layout)
+        self.scan_event_frame.hide()
+        layout.addWidget(self.scan_event_frame)
+        
+        # Setup scan timer (10 seconds)
+        self.scan_timer = QTimer()
+        self.scan_timer.timeout.connect(self._hide_scan_event)
+
+        # 2x2 Grid Layout for action buttons
+        grid = QGridLayout()
+        grid.setSpacing(12)
+        grid.setRowStretch(0, 1)
+        grid.setRowStretch(1, 1)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+
+        # 1. Lock Button (top-left)
+        lock_btn = self._create_action_button(
+            "🔒 LOCK",
+            "Lock the door",
+            self.COLOR_LOCK,
+            self.on_lock_clicked,
+            is_primary=True
+        )
+        grid.addWidget(lock_btn, 0, 0)
+
+        # 2. Unlock for Class Button (top-right)
+        class_btn = self._create_action_button(
+            "🔓 UNLOCK FOR\nCLASS",
+            "Unlock for class",
+            self.COLOR_UNLOCK,
+            self.on_class_unlock_clicked,
+            is_primary=True
+        )
+        grid.addWidget(class_btn, 0, 1)
+
+        # 3. Settings Button (bottom-left)
+        settings_btn = self._create_action_button(
+            "⚙️ SETTINGS",
+            "Admin settings",
+            "#FF9800",
+            self.request_password,
+            is_primary=True
+        )
+        grid.addWidget(settings_btn, 1, 0)
+
+        # 4. Log Viewer Button (bottom-right)
+        logs_btn = self._create_action_button(
+            "📋 LOG VIEWER",
+            "View entry logs",
+            "#9C27B0",
+            self.show_logs,
+            is_primary=True
+        )
+        grid.addWidget(logs_btn, 1, 1)
+
+        layout.addLayout(grid, 1)
+    
+    def _create_action_button(self, label: str, tooltip: str, color: str, callback, is_primary: bool = True):
+        """Create a styled action button with tactile feedback."""
+        btn = QPushButton(label)
+        btn.setToolTip(tooltip)
+        btn.setFont(QFont("Roboto Condensed", 16 if is_primary else 13, QFont.Bold))
+        
+        if is_primary:
+            btn.setMinimumHeight(100)
+            btn.setMinimumWidth(100)
         else:
-            logo_label.setText("GateWise")
-            logo_label.setFont(QFont("Arial", 20))
-        layout.addWidget(logo_label)
+            btn.setMinimumHeight(70)
+            btn.setMinimumWidth(70)
+        
+        # Create stylesheet with color-specific styling
+        stylesheet = f"""
+        QPushButton {{
+            background-color: {color};
+            color: #FFFFFF;
+            border: 2px solid {self._darken_color(color, 0.2)};
+            border-radius: 10px;
+            padding: 10px;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }}
+        
+        QPushButton:hover {{
+            background-color: {self._lighten_color(color, 0.1)};
+            border: 2px solid {self._darken_color(color, 0.1)};
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }}
+        
+        QPushButton:pressed {{
+            background-color: {self._darken_color(color, 0.15)};
+            border: 2px solid {self._darken_color(color, 0.3)};
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            padding: 12px 8px 8px 12px;
+        }}
+        
+        QPushButton:disabled {{
+            background-color: #555555;
+            color: #999999;
+            border: 2px solid #444444;
+            box-shadow: none;
+        }}
+        """
+        
+        btn.setStyleSheet(stylesheet)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(callback)
+        
+        return btn
+    
+    def _lighten_color(self, color: str, amount: float) -> str:
+        """Lighten a hex color."""
+        c = QColor(color)
+        c.setHsv(c.hue(), c.saturation(), min(255, int(c.value() * (1 + amount))))
+        return c.name()
+    
+    def _darken_color(self, color: str, amount: float) -> str:
+        """Darken a hex color."""
+        c = QColor(color)
+        c.setHsv(c.hue(), c.saturation(), max(0, int(c.value() * (1 - amount))))
+        return c.name()
 
-        icons_layout = QGridLayout()
-        icons_layout.setColumnStretch(0, 1)
-        icons_layout.setColumnStretch(1, 1)
-        icons_layout.setRowStretch(0, 1)
-
-        logs_icon = QPushButton()
-        if os.path.exists(self.logs_icon_path):
-            logs_icon.setIcon(QIcon(self.logs_icon_path))
-        logs_icon.setIconSize(QSize(128, 128))
-        logs_icon.setStyleSheet("background-color: transparent;")
-        logs_icon.clicked.connect(self.show_logs)
-        icons_layout.addWidget(logs_icon, 0, 0, alignment=Qt.AlignCenter)
-
-        settings_icon = QPushButton()
-        if os.path.exists(self.settings_icon_path):
-            settings_icon.setIcon(QIcon(self.settings_icon_path))
-        settings_icon.setIconSize(QSize(128, 128))
-        settings_icon.setStyleSheet("background-color: transparent;")
-        settings_icon.clicked.connect(self.request_password)
-        icons_layout.addWidget(settings_icon, 0, 1, alignment=Qt.AlignCenter)
-
-        layout.addLayout(icons_layout)
-
-    def init_action_bar(self):
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(20)
-
-        unlock_btn = QPushButton()
-        if os.path.exists(self.unlock_icon_path):
-            unlock_btn.setIcon(QIcon(self.unlock_icon_path))
-        unlock_btn.setIconSize(QSize(48, 48))
-        unlock_btn.setToolTip("Unlock")
-        unlock_btn.clicked.connect(self.on_unlock_clicked)
-
-        lock_btn = QPushButton()
-        if os.path.exists(self.lock_icon_path):
-            lock_btn.setIcon(QIcon(self.lock_icon_path))
-        lock_btn.setIconSize(QSize(48, 48))
-        lock_btn.setToolTip("Lock")
-        lock_btn.clicked.connect(self.on_lock_clicked)
-
-        class_btn = QPushButton()
-        if os.path.exists(self.class_icon_path):
-            class_btn.setIcon(QIcon(self.class_icon_path))
-        class_btn.setIconSize(QSize(48, 48))
-        class_btn.setToolTip("Unlock for Class")
-        class_btn.clicked.connect(self.on_class_unlock_clicked)
-
-        for btn in (unlock_btn, lock_btn, class_btn):
-            btn.setStyleSheet(
-                "QPushButton { background-color: #2c3e50; color: white; padding: 10px; border-radius: 10px; }"
-                "QPushButton:hover { background-color: #3b5166; }"
-                "QPushButton:pressed { background-color: #1f2d3a; }"
-            )
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-            btn_layout.addWidget(btn)
-
-        return btn_layout
+    def show_rfid_scan_event(self, username: str):
+        """Display RFID scan event for 10 seconds."""
+        self.scan_name_label.setText(username)
+        self.scan_time_label.setText("Just now")
+        self.scan_event_frame.show()
+        
+        # Stop existing timer if running
+        if self.scan_timer.isActive():
+            self.scan_timer.stop()
+        
+        # Set timer to hide after 10 seconds (10000 ms)
+        self.scan_timer.start(10000)
+    
+    def _hide_scan_event(self):
+        """Hide the scan event display."""
+        self.scan_event_frame.hide()
+        self.scan_timer.stop()
 
     def init_settings_screen(self):
         layout = QVBoxLayout()
-        layout.setSpacing(10)
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.settings_screen.setLayout(layout)
 
-        title = QLabel("Settings")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title = QLabel("⚙️  SETTINGS")
+        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("margin-bottom: 5px;")
+        title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
         layout.addWidget(title)
 
         # Main settings buttons
-        blackout_btn = QPushButton("Blackout Schedule")
-        blackout_btn.clicked.connect(self.show_blackout)
-        user_btn = QPushButton("User Maintenance")
-        user_btn.clicked.connect(self.show_user_management)
+        blackout_btn = self._create_settings_button("📅 Blackout Schedule", "Manage access blackout times", self.show_blackout)
+        user_btn = self._create_settings_button("👥 User Maintenance", "Add/edit/delete users", self.show_user_management)
 
-        for btn in (blackout_btn, user_btn):
-            btn.setStyleSheet(
-                "QPushButton { background-color: #34495e; color: white; font-size: 18px; padding: 18px; border-radius: 8px; }"
-                "QPushButton:hover { background-color: #3f5f78; }"
-                "QPushButton:pressed { background-color: #26394a; }"
-            )
-            btn.setMinimumHeight(70)
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            layout.addWidget(btn)
+        layout.addWidget(blackout_btn)
+        layout.addWidget(user_btn)
 
-        # Lock Settings Section
-        lock_settings_group = QGroupBox("Class Access Duration")
-        lock_settings_group.setStyleSheet(
-            "QGroupBox { font-size: 16px; font-weight: bold; color: white; border: 2px solid #444; "
-            "border-radius: 8px; margin-top: 10px; padding: 10px; }"
-            "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }"
-        )
+        # Class Access Duration Section
+        lock_settings_group = QGroupBox("Class Unlock Duration")
+        lock_settings_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-size: 14px;
+                font-weight: bold;
+                color: {self.COLOR_TEXT};
+                border: 1px solid #444;
+                border-radius: 8px;
+                margin-top: 8px;
+                padding: 10px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }}
+        """)
         lock_layout = QVBoxLayout()
         
         self.class_duration_dropdown = QComboBox()
         self.class_duration_dropdown.addItems(["15 minutes", "30 minutes", "45 minutes", "60 minutes", "90 minutes"])
-        self.class_duration_dropdown.setCurrentIndex(3)  # Default to 60 minutes
-        self.class_duration_dropdown.setStyleSheet(
-            "QComboBox { background-color: #2c3e50; color: white; font-size: 16px; padding: 10px; border-radius: 6px; }"
-            "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: top right; width: 30px; border-left: 1px solid #555; }"
-            "QComboBox::down-arrow { width: 12px; height: 12px; }"
-            "QComboBox QAbstractItemView { background-color: #2c3e50; color: white; selection-background-color: #34495e; }"
-        )
+        self.class_duration_dropdown.setCurrentIndex(3)
         self.class_duration_dropdown.setMinimumHeight(45)
         lock_layout.addWidget(self.class_duration_dropdown)
         lock_settings_group.setLayout(lock_layout)
@@ -438,83 +754,138 @@ class GateWiseUI(QWidget):
         layout.addStretch()
 
         # System control buttons
-        buttons_layout = QHBoxLayout()
+        buttons_layout = QGridLayout()
         buttons_layout.setSpacing(10)
 
-        shutdown_btn = QPushButton("Shutdown System")
-        shutdown_btn.clicked.connect(self.shutdown_system)
-        shutdown_btn.setStyleSheet(
-            "QPushButton { background-color: #c0392b; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #e74c3c; }"
-            "QPushButton:pressed { background-color: #a93226; }"
-        )
-        shutdown_btn.setMinimumHeight(55)
-        buttons_layout.addWidget(shutdown_btn)
+        shutdown_btn = self._create_danger_button("🔌 Shutdown System", self.shutdown_system, is_large=True)
+        exit_btn = self._create_danger_button("🚪 Exit to Desktop", self.exit_to_desktop, is_large=True)
+        back_btn = self._create_neutral_button("← Back to Main", self.show_main, is_large=True)
 
-        exit_btn = QPushButton("Exit to Desktop")
-        exit_btn.clicked.connect(self.exit_to_desktop)
-        exit_btn.setStyleSheet(
-            "QPushButton { background-color: #34495e; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #3f5f78; }"
-            "QPushButton:pressed { background-color: #26394a; }"
-        )
-        exit_btn.setMinimumHeight(55)
-        buttons_layout.addWidget(exit_btn)
-
-        back_btn = QPushButton("< Back to Main")
-        back_btn.clicked.connect(self.show_main)
-        back_btn.setStyleSheet(
-            "QPushButton { background-color: #7f8c8d; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #95a5a6; }"
-            "QPushButton:pressed { background-color: #6c7a7b; }"
-        )
-        back_btn.setMinimumHeight(55)
-        buttons_layout.addWidget(back_btn)
+        buttons_layout.addWidget(shutdown_btn, 0, 0)
+        buttons_layout.addWidget(exit_btn, 0, 1)
+        buttons_layout.addWidget(back_btn, 0, 2)
 
         layout.addLayout(buttons_layout)
+    
+    def _create_settings_button(self, label: str, tooltip: str, callback):
+        """Create a settings section button."""
+        btn = QPushButton(label)
+        btn.setToolTip(tooltip)
+        btn.setFont(QFont("Roboto Condensed", 14, QFont.Bold))
+        btn.setMinimumHeight(60)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #2A2A2A;
+                color: {self.COLOR_TEXT};
+                border: 1px solid #444;
+                border-radius: 8px;
+                padding: 12px;
+                text-align: left;
+            }}
+            QPushButton:hover {{
+                background-color: #3A3A3A;
+                border: 1px solid #555;
+            }}
+            QPushButton:pressed {{
+                background-color: #1A1A1A;
+                border: 1px solid #333;
+            }}
+        """)
+        btn.clicked.connect(callback)
+        return btn
+    
+    def _create_danger_button(self, label: str, callback, is_large: bool = False):
+        """Create a danger/warning button (red)."""
+        btn = QPushButton(label)
+        btn.setFont(QFont("Roboto Condensed", 12, QFont.Bold))
+        btn.setMinimumHeight(55 if is_large else 48)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.COLOR_LOCK};
+                color: #FFFFFF;
+                border: 2px solid #C62828;
+                border-radius: 8px;
+                padding: 10px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #FF5252;
+                border: 2px solid #E53935;
+            }}
+            QPushButton:pressed {{
+                background-color: #D32F2F;
+                border: 2px solid #B71C1C;
+            }}
+        """)
+        btn.clicked.connect(callback)
+        return btn
+    
+    def _create_neutral_button(self, label: str, callback, is_large: bool = False):
+        """Create a neutral/secondary button (gray)."""
+        btn = QPushButton(label)
+        btn.setFont(QFont("Roboto Condensed", 12, QFont.Bold))
+        btn.setMinimumHeight(55 if is_large else 48)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #424242;
+                color: {self.COLOR_TEXT};
+                border: 1px solid #555;
+                border-radius: 8px;
+                padding: 10px;
+            }}
+            QPushButton:hover {{
+                background-color: #505050;
+                border: 1px solid #666;
+            }}
+            QPushButton:pressed {{
+                background-color: #303030;
+                border: 1px solid #444;
+            }}
+        """)
+        btn.clicked.connect(callback)
+        return btn
 
     def init_log_screen(self):
         layout = QVBoxLayout()
-        layout.setSpacing(10)
-        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.log_screen.setLayout(layout)
         
-        title = QLabel("RFID Entry Log")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title = QLabel("📋 RFID ENTRY LOG")
+        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("margin-bottom: 5px;")
+        title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
         layout.addWidget(title)
         
         self.log_list = QListWidget()
-        self.log_list.setStyleSheet(
-            "QListWidget { font-size: 13px; padding: 6px; background-color: #2c3e50; }"
-            "QListWidget::item { padding: 8px; border-bottom: 1px solid #34495e; }"
-            "QListWidget::item:selected { background-color: #34495e; }"
-        )
-        layout.addWidget(self.log_list)
+        self.log_list.setStyleSheet(f"""
+            QListWidget {{
+                font-size: 13px;
+                padding: 6px;
+                background-color: #2A2A2A;
+                border: 1px solid #444;
+                border-radius: 6px;
+            }}
+            QListWidget::item {{
+                padding: 8px;
+                border-bottom: 1px solid #333;
+            }}
+            QListWidget::item:selected {{
+                background-color: #3A3A3A;
+                color: {self.COLOR_TEXT};
+            }}
+        """)
+        layout.addWidget(self.log_list, 1)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
 
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self.load_rfid_logs)
-        refresh_btn.setStyleSheet(
-            "QPushButton { background-color: #3498db; color: white; font-size: 16px; padding: 10px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #5dade2; }"
-            "QPushButton:pressed { background-color: #2874a6; }"
-        )
-        refresh_btn.setMinimumHeight(55)
-        buttons_layout.addWidget(refresh_btn)
+        refresh_btn = self._create_action_button("🔄 REFRESH", "Reload logs", self.COLOR_SECONDARY, self.load_rfid_logs, is_primary=False)
+        back_btn = self._create_neutral_button("← Back to Main", self.show_main, is_large=True)
 
-        back_btn = QPushButton("< Back to Main")
-        back_btn.clicked.connect(self.show_main)
-        back_btn.setStyleSheet(
-            "QPushButton { background-color: #7f8c8d; color: white; font-size: 16px; padding: 12px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #95a5a6; }"
-            "QPushButton:pressed { background-color: #6c7a7b; }"
-        )
-        back_btn.setMinimumHeight(55)
-        buttons_layout.addWidget(back_btn)
+        buttons_layout.addWidget(refresh_btn)
+        buttons_layout.addWidget(back_btn, 1)
 
         layout.addLayout(buttons_layout)
 
@@ -565,43 +936,70 @@ class GateWiseUI(QWidget):
 
     def init_blackout_screen(self):
         layout = QVBoxLayout()
-        layout.setSpacing(8)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.blackout_screen.setLayout(layout)
 
-        title = QLabel("Blackout Schedule")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title = QLabel("📅 BLACKOUT SCHEDULE")
+        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("margin-bottom: 5px;")
+        title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
         layout.addWidget(title)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(f"QScrollArea {{ background-color: {self.BG_DARK}; border: none; }}")
         content = QWidget()
         grid = QVBoxLayout()
-        grid.setSpacing(6)
+        grid.setSpacing(8)
 
         self.blackout_blocks = {}
         self.block_layouts = {}
 
         for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
             group = QGroupBox(day)
-            group.setStyleSheet(
-                "QGroupBox { font-weight: bold; font-size: 14px; border: 2px solid #444; "
-                "border-radius: 6px; margin-top: 8px; padding: 8px; }"
-                "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }"
-            )
+            group.setStyleSheet(f"""
+                QGroupBox {{
+                    font-weight: bold;
+                    font-size: 13px;
+                    color: {self.COLOR_TEXT};
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    margin-top: 8px;
+                    padding: 8px;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px;
+                }}
+            """)
             group_layout = QVBoxLayout()
             self.blackout_blocks[day] = []
             self.block_layouts[day] = group_layout
 
             add_btn = QPushButton("+ Add Time Block")
-            add_btn.setStyleSheet(
-                "QPushButton { background-color: #2c3e50; color: white; font-size: 13px; padding: 8px; border-radius: 6px; }"
-                "QPushButton:hover { background-color: #3b5166; }"
-                "QPushButton:pressed { background-color: #1f2d3a; }"
-            )
+            add_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: #2A2A2A;
+                    color: {self.COLOR_TEXT};
+                    font-size: 12px;
+                    padding: 8px;
+                    border-radius: 6px;
+                    border: 1px solid #444;
+                }}
+                QPushButton:hover {{
+                    background-color: #3A3A3A;
+                    border: 1px solid #555;
+                }}
+                QPushButton:pressed {{
+                    background-color: #1A1A1A;
+                    border: 1px solid #333;
+                }}
+            """)
             add_btn.clicked.connect(lambda _, d=day: self.add_time_block(d))
+            add_btn.setMinimumHeight(40)
 
             group_layout.addWidget(add_btn)
             group.setLayout(group_layout)
@@ -609,30 +1007,16 @@ class GateWiseUI(QWidget):
 
         content.setLayout(grid)
         scroll.setWidget(content)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
 
-        save_btn = QPushButton("Save Schedule")
-        save_btn.setStyleSheet(
-            "QPushButton { background-color: #27ae60; color: white; font-size: 16px; padding: 10px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #2ecc71; }"
-            "QPushButton:pressed { background-color: #1f8a4d; }"
-        )
-        save_btn.setMinimumHeight(55)
-        save_btn.clicked.connect(self.save_blackout_schedule)
-        buttons_layout.addWidget(save_btn)
+        save_btn = self._create_action_button("💾 SAVE", "Save blackout schedule", self.COLOR_UNLOCK, self.save_blackout_schedule, is_primary=False)
+        back_btn = self._create_neutral_button("← Back", self.show_settings, is_large=True)
 
-        back_btn = QPushButton("< Back")
-        back_btn.setStyleSheet(
-            "QPushButton { background-color: #7f8c8d; color: white; font-size: 16px; padding: 10px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #95a5a6; }"
-            "QPushButton:pressed { background-color: #6c7a7b; }"
-        )
-        back_btn.setMinimumHeight(55)
-        back_btn.clicked.connect(self.show_settings)
-        buttons_layout.addWidget(back_btn)
+        buttons_layout.addWidget(save_btn)
+        buttons_layout.addWidget(back_btn, 1)
 
         layout.addLayout(buttons_layout)
 
@@ -641,29 +1025,75 @@ class GateWiseUI(QWidget):
     def add_time_block(self, day_name, start_str="04:00", end_str="10:00"):
         container = QWidget()
         layout = QHBoxLayout()
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(10)
 
         start_time = QTimeEdit()
         start_time.setTime(QTime.fromString(start_str, "HH:mm"))
         start_time.setDisplayFormat("HH:mm")
-        start_time.setMinimumWidth(100)
-        start_time.setStyleSheet("font-size: 16px;")
+        start_time.setMinimumWidth(80)
+        start_time.setMinimumHeight(38)
+        start_time.setStyleSheet(f"""
+            QTimeEdit {{
+                font-size: 14px;
+                background-color: #2A2A2A;
+                color: {self.COLOR_TEXT};
+                border: 1px solid #444;
+                border-radius: 6px;
+                padding: 6px;
+            }}
+        """)
 
         end_time = QTimeEdit()
         end_time.setTime(QTime.fromString(end_str, "HH:mm"))
         end_time.setDisplayFormat("HH:mm")
-        end_time.setMinimumWidth(100)
-        end_time.setStyleSheet("font-size: 16px;")
+        end_time.setMinimumWidth(80)
+        end_time.setMinimumHeight(38)
+        end_time.setStyleSheet(f"""
+            QTimeEdit {{
+                font-size: 14px;
+                background-color: #2A2A2A;
+                color: {self.COLOR_TEXT};
+                border: 1px solid #444;
+                border-radius: 6px;
+                padding: 6px;
+            }}
+        """)
 
-        remove_btn = QPushButton("X")
-        remove_btn.setFixedSize(40, 40)
-        remove_btn.setStyleSheet("font-size: 16px; font-weight: bold; color: red; background: transparent;")
+        start_label = QLabel("From:")
+        start_label.setStyleSheet(f"color: {self.COLOR_TEXT_DIM}; font-size: 12px; font-weight: bold;")
+        
+        end_label = QLabel("To:")
+        end_label.setStyleSheet(f"color: {self.COLOR_TEXT_DIM}; font-size: 12px; font-weight: bold;")
 
-        layout.addWidget(QLabel("Start:"))
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedSize(48, 38)
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.COLOR_LOCK};
+                color: #FFFFFF;
+                border: 1px solid #C62828;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #FF5252;
+                border: 1px solid #E53935;
+            }}
+            QPushButton:pressed {{
+                background-color: #D32F2F;
+                border: 1px solid #B71C1C;
+            }}
+        """)
+
+        layout.addWidget(start_label)
         layout.addWidget(start_time)
-        layout.addWidget(QLabel("End:"))
+        layout.addWidget(end_label)
         layout.addWidget(end_time)
+        layout.addStretch()
         layout.addWidget(remove_btn)
+        
         container.setLayout(layout)
         self.block_layouts[day_name].insertWidget(self.block_layouts[day_name].count() - 1, container)
 
@@ -673,10 +1103,8 @@ class GateWiseUI(QWidget):
             self.block_layouts[day_name].removeWidget(container)
             container.setParent(None)
             self.blackout_blocks[day_name].remove((start_time, end_time, container))
-            # QMessageBox.information(self, "Removed", f"Block removed from {day_name}")
 
         remove_btn.clicked.connect(remove_block)
-        # QMessageBox.information(self, "Added", f"Block added to {day_name}")
 
     def save_blackout_schedule(self):
         data = {}
@@ -691,8 +1119,8 @@ class GateWiseUI(QWidget):
 
         with open("blackout.json", "w") as f:
             json.dump(data, f, indent=4)
-        QMessageBox.information(self, "Saved", "Blackout schedule saved successfully.")
-        self.set_status("Blackout schedule saved")
+        QMessageBox.information(self, "✓ Saved", "Blackout schedule saved successfully.")
+        self.set_status("✓ Blackout schedule saved")
 
     def load_blackout_schedule(self):
         if not os.path.exists("blackout.json"):
@@ -712,46 +1140,34 @@ class GateWiseUI(QWidget):
 
     def init_user_screen(self):
         layout = QVBoxLayout()
-        layout.setSpacing(10)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
         self.user_screen.setLayout(layout)
 
-        title = QLabel("User Maintenance")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title = QLabel("👥 USER MAINTENANCE")
+        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("margin-bottom: 5px;")
+        title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
         layout.addWidget(title)
 
         self.user_list_widget = QVBoxLayout()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(f"QScrollArea {{ background-color: {self.BG_DARK}; border: none; }}")
         scroll_content = QWidget()
         scroll_content.setLayout(self.user_list_widget)
         scroll.setWidget(scroll_content)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
 
-        add_user_btn = QPushButton("+ Add User")
-        add_user_btn.setStyleSheet(
-            "QPushButton { background-color: #2980b9; color: white; font-size: 16px; padding: 10px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #3498db; }"
-            "QPushButton:pressed { background-color: #1f6691; }"
-        )
-        add_user_btn.setMinimumHeight(55)
-        add_user_btn.clicked.connect(self.add_user_dialog)
-        buttons_layout.addWidget(add_user_btn)
+        add_user_btn = self._create_action_button("+ ADD USER", "Add a new user", self.COLOR_SECONDARY, self.add_user_dialog, is_primary=False)
+        back_btn = self._create_neutral_button("← Back", self.show_settings, is_large=True)
 
-        back_btn = QPushButton("< Back")
-        back_btn.setStyleSheet(
-            "QPushButton { background-color: #7f8c8d; color: white; font-size: 16px; padding: 10px; border-radius: 8px; }"
-            "QPushButton:hover { background-color: #95a5a6; }"
-            "QPushButton:pressed { background-color: #6c7a7b; }"
-        )
-        back_btn.setMinimumHeight(55)
-        back_btn.clicked.connect(self.show_settings)
-        buttons_layout.addWidget(back_btn)
+        buttons_layout.addWidget(add_user_btn)
+        buttons_layout.addWidget(back_btn, 1)
 
         layout.addLayout(buttons_layout)
 
@@ -772,44 +1188,83 @@ class GateWiseUI(QWidget):
 
         for user in self.users:
             group = QGroupBox()
-            group.setStyleSheet(
-                "QGroupBox { background-color: #34495e; border: 1px solid #555; "
-                "border-radius: 6px; padding: 6px; margin: 3px; }"
-            )
+            group.setStyleSheet(f"""
+                QGroupBox {{
+                    background-color: #2A2A2A;
+                    border: 1px solid #444;
+                    border-radius: 6px;
+                    padding: 10px;
+                    margin: 4px;
+                }}
+            """)
             layout = QHBoxLayout()
+            layout.setContentsMargins(8, 8, 8, 8)
+            layout.setSpacing(12)
             
-            uid_label = QLabel(f"UID: {user['uid']}")
-            uid_label.setStyleSheet("font-size: 12px; color: #ecf0f1;")
-            layout.addWidget(uid_label)
+            uid_label = QLabel(f"ID: {user['uid']}")
+            uid_label.setStyleSheet(f"font-size: 11px; color: {self.COLOR_TEXT_DIM};")
+            layout.addWidget(uid_label, 0)
             
-            name_label = QLabel(f"Name: {user['name']}")
-            name_label.setStyleSheet("font-size: 13px; color: #ecf0f1; font-weight: bold;")
-            layout.addWidget(name_label)
+            name_label = QLabel(f"{user['name']}")
+            name_font = QFont("Roboto Condensed", 13, QFont.Bold)
+            name_label.setFont(name_font)
+            name_label.setStyleSheet(f"color: {self.COLOR_TEXT};")
+            layout.addWidget(name_label, 0)
             
-            admin_label = QLabel(f"Admin: {'Yes' if user['isAdmin'] else 'No'}")
-            admin_label.setStyleSheet("font-size: 12px; color: #ecf0f1;")
-            layout.addWidget(admin_label)
+            admin_badge = QLabel("👑 ADMIN" if user['isAdmin'] else "")
+            admin_badge.setStyleSheet(f"font-size: 10px; color: {self.COLOR_UNLOCK}; font-weight: bold;")
+            layout.addWidget(admin_badge, 0)
+            
+            layout.addStretch()
 
-            edit_btn = QPushButton("Edit")
-            edit_btn.setFixedSize(55, 40)
-            edit_btn.setStyleSheet(
-                "QPushButton { background-color: #3498db; color: white; font-size: 13px; border-radius: 6px; }"
-                "QPushButton:hover { background-color: #5dade2; }"
-                "QPushButton:pressed { background-color: #2874a6; }"
-            )
+            edit_btn = QPushButton("✏️ EDIT")
+            edit_btn.setMinimumHeight(40)
+            edit_btn.setMinimumWidth(70)
+            edit_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {self.COLOR_SECONDARY};
+                    color: #FFFFFF;
+                    border: 1px solid #1565C0;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #42A5F5;
+                    border: 1px solid #1E88E5;
+                }}
+                QPushButton:pressed {{
+                    background-color: #1E88E5;
+                    border: 1px solid #0D47A1;
+                }}
+            """)
             edit_btn.clicked.connect(lambda _, u=user: self.edit_user_dialog(u))
 
-            del_btn = QPushButton("Del")
-            del_btn.setFixedSize(55, 40)
-            del_btn.setStyleSheet(
-                "QPushButton { background-color: #e74c3c; color: white; font-size: 13px; border-radius: 6px; }"
-                "QPushButton:hover { background-color: #ec7063; }"
-                "QPushButton:pressed { background-color: #c0392b; }"
-            )
+            del_btn = QPushButton("🗑️ DEL")
+            del_btn.setMinimumHeight(40)
+            del_btn.setMinimumWidth(70)
+            del_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {self.COLOR_LOCK};
+                    color: #FFFFFF;
+                    border: 1px solid #C62828;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: #FF5252;
+                    border: 1px solid #E53935;
+                }}
+                QPushButton:pressed {{
+                    background-color: #D32F2F;
+                    border: 1px solid #B71C1C;
+                }}
+            """)
             del_btn.clicked.connect(lambda _, u=user: self.delete_user(u))
 
-            layout.addWidget(edit_btn)
-            layout.addWidget(del_btn)
+            layout.addWidget(edit_btn, 0)
+            layout.addWidget(del_btn, 0)
             group.setLayout(layout)
             self.user_list_widget.addWidget(group)
 
