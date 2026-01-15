@@ -196,7 +196,7 @@ class GateWiseUI(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GateWise Access Control - Power Alley CrossFit")
-        self.setGeometry(100, 100, 800, 480)
+        self.setGeometry(0, 0, 1024, 600)  # Scaled up for 7-inch touchscreen
 
         # Color scheme - Industrial dark mode
         self.BG_DARK = "#1A1A1A"
@@ -273,18 +273,18 @@ class GateWiseUI(QWidget):
             background-color: {self.BG_DARK};
             color: {self.COLOR_TEXT};
             font-family: 'Roboto Condensed', 'Inter', sans-serif;
-            font-size: 14px;
+            font-size: 18px;
         }}
         
         QPushButton {{
             background-color: #2A2A2A;
             color: {self.COLOR_TEXT};
             border: 1px solid #444;
-            border-radius: 8px;
-            padding: 8px 12px;
+            border-radius: 10px;
+            padding: 12px 16px;
             font-weight: 500;
-            min-height: 48px;
-            min-width: 48px;
+            min-height: 60px;
+            min-width: 60px;
         }}
         
         QPushButton:hover {{
@@ -310,9 +310,10 @@ class GateWiseUI(QWidget):
             background-color: #2A2A2A;
             color: {self.COLOR_TEXT};
             border: 1px solid #444;
-            border-radius: 6px;
-            padding: 8px;
-            min-height: 40px;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 50px;
+            font-size: 18px;
         }}
         
         QGroupBox {{
@@ -337,22 +338,22 @@ class GateWiseUI(QWidget):
         header_layout.setSpacing(16)
         
         title_label = QLabel("POWER ALLEY CROSSFIT")
-        title_font = QFont("Roboto Condensed", 24, QFont.Bold)
+        title_font = QFont("Roboto Condensed", 32, QFont.Bold)
         title_label.setFont(title_font)
         title_label.setStyleSheet(f"color: {self.COLOR_TEXT};")
         header_layout.addWidget(title_label, 1)
         
         # Lock status indicator
         self.lock_status_frame = QFrame()
-        self.lock_status_frame.setFixedHeight(48)
-        self.lock_status_frame.setMinimumWidth(120)
+        self.lock_status_frame.setFixedHeight(60)
+        self.lock_status_frame.setMinimumWidth(180)
         self.update_lock_status_display("locked")
         header_layout.addWidget(self.lock_status_frame)
         
         header_frame = QFrame()
         header_frame.setStyleSheet(f"background-color: {self.BG_DARKER}; border-bottom: 2px solid #333;")
         header_frame.setLayout(header_layout)
-        header_frame.setFixedHeight(72)
+        header_frame.setFixedHeight(90)
         
         container = QVBoxLayout()
         container.setContentsMargins(0, 0, 0, 0)
@@ -372,18 +373,18 @@ class GateWiseUI(QWidget):
         
         if status == "locked":
             indicator = QFrame()
-            indicator.setFixedSize(20, 20)
-            indicator.setStyleSheet(f"background-color: {self.COLOR_LOCK}; border-radius: 10px;")
+            indicator.setFixedSize(28, 28)
+            indicator.setStyleSheet(f"background-color: {self.COLOR_LOCK}; border-radius: 14px;")
             layout.addWidget(indicator)
-            text = QLabel("🔒 LOCKED")
-            text.setStyleSheet(f"color: {self.COLOR_LOCK}; font-weight: bold;")
+            text = QLabel("LOCKED")
+            text.setStyleSheet(f"color: {self.COLOR_LOCK}; font-weight: bold; font-size: 18px;")
         else:
             indicator = QFrame()
-            indicator.setFixedSize(20, 20)
-            indicator.setStyleSheet(f"background-color: {self.COLOR_UNLOCK}; border-radius: 10px;")
+            indicator.setFixedSize(28, 28)
+            indicator.setStyleSheet(f"background-color: {self.COLOR_UNLOCK}; border-radius: 14px;")
             layout.addWidget(indicator)
-            text = QLabel("🔓 UNLOCKED")
-            text.setStyleSheet(f"color: {self.COLOR_UNLOCK}; font-weight: bold;")
+            text = QLabel("UNLOCKED")
+            text.setStyleSheet(f"color: {self.COLOR_UNLOCK}; font-weight: bold; font-size: 18px;")
         
         layout.addWidget(text)
         layout.addStretch()
@@ -397,22 +398,30 @@ class GateWiseUI(QWidget):
                 self.lock_status_alert.setStyleSheet(f"""
                     QFrame {{
                         background-color: {self.COLOR_LOCK};
-                        border-radius: 10px;
-                        padding: 16px;
+                        border-radius: 12px;
+                        padding: 20px;
                     }}
                 """)
                 self.lock_status_label.setText("LOCKED")
                 self.lock_status_subtext.setText("ALERT")
+                # Update icon
+                lock_pixmap = QPixmap(self.lock_icon_path)
+                if not lock_pixmap.isNull():
+                    self.lock_icon_label.setPixmap(lock_pixmap.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             else:
                 self.lock_status_alert.setStyleSheet(f"""
                     QFrame {{
                         background-color: {self.COLOR_UNLOCK};
-                        border-radius: 10px;
-                        padding: 16px;
+                        border-radius: 12px;
+                        padding: 20px;
                     }}
                 """)
                 self.lock_status_label.setText("UNLOCKED")
                 self.lock_status_subtext.setText("ACCESS GRANTED")
+                # Update icon
+                unlock_pixmap = QPixmap(self.unlock_icon_path)
+                if not unlock_pixmap.isNull():
+                    self.lock_icon_label.setPixmap(unlock_pixmap.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
     
 
     def set_status(self, message: str, is_locked: bool = None):
@@ -505,26 +514,29 @@ class GateWiseUI(QWidget):
         self.lock_status_alert.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLOR_LOCK};
-                border-radius: 10px;
-                padding: 16px;
+                border-radius: 12px;
+                padding: 20px;
             }}
         """)
-        self.lock_status_alert.setFixedHeight(80)
+        self.lock_status_alert.setFixedHeight(100)
         lock_alert_layout = QHBoxLayout()
-        lock_alert_layout.setContentsMargins(16, 8, 16, 8)
-        lock_alert_layout.setSpacing(16)
+        lock_alert_layout.setContentsMargins(20, 12, 20, 12)
+        lock_alert_layout.setSpacing(20)
         
-        lock_icon = QLabel("🔒")
-        lock_icon.setFont(QFont("Arial", 36))
-        lock_alert_layout.addWidget(lock_icon)
+        # Use icon image instead of emoji
+        self.lock_icon_label = QLabel()
+        lock_pixmap = QPixmap(self.lock_icon_path)
+        if not lock_pixmap.isNull():
+            self.lock_icon_label.setPixmap(lock_pixmap.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        lock_alert_layout.addWidget(self.lock_icon_label)
         
         self.lock_status_label = QLabel("LOCKED")
-        self.lock_status_label.setFont(QFont("Roboto Condensed", 28, QFont.Bold))
+        self.lock_status_label.setFont(QFont("Roboto Condensed", 36, QFont.Bold))
         self.lock_status_label.setStyleSheet(f"color: #000000;")
         lock_alert_layout.addWidget(self.lock_status_label)
         
         self.lock_status_subtext = QLabel("ALERT")
-        self.lock_status_subtext.setFont(QFont("Roboto Condensed", 14))
+        self.lock_status_subtext.setFont(QFont("Roboto Condensed", 18))
         self.lock_status_subtext.setStyleSheet(f"color: #000000;")
         lock_alert_layout.addWidget(self.lock_status_subtext)
         lock_alert_layout.addStretch()
@@ -537,27 +549,27 @@ class GateWiseUI(QWidget):
         self.scan_event_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {self.COLOR_SECONDARY};
-                border-radius: 10px;
-                padding: 16px;
+                border-radius: 12px;
+                padding: 20px;
             }}
         """)
-        self.scan_event_frame.setFixedHeight(80)
+        self.scan_event_frame.setFixedHeight(100)
         scan_layout = QHBoxLayout()
-        scan_layout.setContentsMargins(16, 8, 16, 8)
-        scan_layout.setSpacing(16)
+        scan_layout.setContentsMargins(20, 12, 20, 12)
+        scan_layout.setSpacing(20)
         
         scan_icon = QLabel("✓")
-        scan_icon.setFont(QFont("Arial", 36))
+        scan_icon.setFont(QFont("Arial", 48))
         scan_icon.setStyleSheet("color: #FFFFFF;")
         scan_layout.addWidget(scan_icon)
         
         self.scan_name_label = QLabel("Guest User")
-        self.scan_name_label.setFont(QFont("Roboto Condensed", 24, QFont.Bold))
+        self.scan_name_label.setFont(QFont("Roboto Condensed", 32, QFont.Bold))
         self.scan_name_label.setStyleSheet("color: #FFFFFF;")
         scan_layout.addWidget(self.scan_name_label)
         
         self.scan_time_label = QLabel("Just now")
-        self.scan_time_label.setFont(QFont("Roboto Condensed", 14))
+        self.scan_time_label.setFont(QFont("Roboto Condensed", 18))
         self.scan_time_label.setStyleSheet("color: #FFFFFF;")
         scan_layout.addWidget(self.scan_time_label)
         scan_layout.addStretch()
@@ -580,58 +592,68 @@ class GateWiseUI(QWidget):
 
         # 1. Lock Button (top-left)
         lock_btn = self._create_action_button(
-            "🔒 LOCK",
+            "LOCK",
             "Lock the door",
             self.COLOR_LOCK,
             self.on_lock_clicked,
-            is_primary=True
+            is_primary=True,
+            icon_path=self.lock_icon_path
         )
         grid.addWidget(lock_btn, 0, 0)
 
         # 2. Unlock for Class Button (top-right)
         class_btn = self._create_action_button(
-            "🔓 UNLOCK FOR\nCLASS",
+            "UNLOCK FOR\nCLASS",
             "Unlock for class",
             self.COLOR_UNLOCK,
             self.on_class_unlock_clicked,
-            is_primary=True
+            is_primary=True,
+            icon_path=self.class_icon_path
         )
         grid.addWidget(class_btn, 0, 1)
 
         # 3. Settings Button (bottom-left)
         settings_btn = self._create_action_button(
-            "⚙️ SETTINGS",
+            "SETTINGS",
             "Admin settings",
             "#FF9800",
             self.request_password,
-            is_primary=True
+            is_primary=True,
+            icon_path=self.settings_icon_path
         )
         grid.addWidget(settings_btn, 1, 0)
 
         # 4. Log Viewer Button (bottom-right)
         logs_btn = self._create_action_button(
-            "📋 LOG VIEWER",
+            "LOG VIEWER",
             "View entry logs",
             "#9C27B0",
             self.show_logs,
-            is_primary=True
+            is_primary=True,
+            icon_path=self.logs_icon_path
         )
         grid.addWidget(logs_btn, 1, 1)
 
         layout.addLayout(grid, 1)
     
-    def _create_action_button(self, label: str, tooltip: str, color: str, callback, is_primary: bool = True):
-        """Create a styled action button with tactile feedback."""
+    def _create_action_button(self, label: str, tooltip: str, color: str, callback, is_primary: bool = True, icon_path: str = None):
+        """Create a styled action button with tactile feedback and optional icon."""
         btn = QPushButton(label)
         btn.setToolTip(tooltip)
-        btn.setFont(QFont("Roboto Condensed", 16 if is_primary else 13, QFont.Bold))
+        btn.setFont(QFont("Roboto Condensed", 20 if is_primary else 16, QFont.Bold))
+        
+        # Load and set icon if provided
+        if icon_path and os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            btn.setIcon(icon)
+            btn.setIconSize(QSize(48 if is_primary else 32, 48 if is_primary else 32))
         
         if is_primary:
-            btn.setMinimumHeight(100)
-            btn.setMinimumWidth(100)
+            btn.setMinimumHeight(140)
+            btn.setMinimumWidth(140)
         else:
-            btn.setMinimumHeight(70)
-            btn.setMinimumWidth(70)
+            btn.setMinimumHeight(80)
+            btn.setMinimumWidth(80)
         
         # Create stylesheet with color-specific styling
         stylesheet = f"""
@@ -709,8 +731,8 @@ class GateWiseUI(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         self.settings_screen.setLayout(layout)
 
-        title = QLabel("⚙️  SETTINGS")
-        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title = QLabel("SETTINGS")
+        title_font = QFont("Roboto Condensed", 28, QFont.Bold)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
@@ -771,8 +793,8 @@ class GateWiseUI(QWidget):
         """Create a settings section button."""
         btn = QPushButton(label)
         btn.setToolTip(tooltip)
-        btn.setFont(QFont("Roboto Condensed", 14, QFont.Bold))
-        btn.setMinimumHeight(60)
+        btn.setFont(QFont("Roboto Condensed", 18, QFont.Bold))
+        btn.setMinimumHeight(70)
         btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: #2A2A2A;
@@ -797,8 +819,8 @@ class GateWiseUI(QWidget):
     def _create_danger_button(self, label: str, callback, is_large: bool = False):
         """Create a danger/warning button (red)."""
         btn = QPushButton(label)
-        btn.setFont(QFont("Roboto Condensed", 12, QFont.Bold))
-        btn.setMinimumHeight(55 if is_large else 48)
+        btn.setFont(QFont("Roboto Condensed", 16, QFont.Bold))
+        btn.setMinimumHeight(65 if is_large else 58)
         btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {self.COLOR_LOCK};
@@ -823,8 +845,8 @@ class GateWiseUI(QWidget):
     def _create_neutral_button(self, label: str, callback, is_large: bool = False):
         """Create a neutral/secondary button (gray)."""
         btn = QPushButton(label)
-        btn.setFont(QFont("Roboto Condensed", 12, QFont.Bold))
-        btn.setMinimumHeight(55 if is_large else 48)
+        btn.setFont(QFont("Roboto Condensed", 16, QFont.Bold))
+        btn.setMinimumHeight(65 if is_large else 58)
         btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: #424242;
@@ -851,8 +873,8 @@ class GateWiseUI(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         self.log_screen.setLayout(layout)
         
-        title = QLabel("📋 RFID ENTRY LOG")
-        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title = QLabel("RFID ENTRY LOG")
+        title_font = QFont("Roboto Condensed", 28, QFont.Bold)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
@@ -861,14 +883,14 @@ class GateWiseUI(QWidget):
         self.log_list = QListWidget()
         self.log_list.setStyleSheet(f"""
             QListWidget {{
-                font-size: 13px;
-                padding: 6px;
+                font-size: 16px;
+                padding: 8px;
                 background-color: #2A2A2A;
                 border: 1px solid #444;
-                border-radius: 6px;
+                border-radius: 8px;
             }}
             QListWidget::item {{
-                padding: 8px;
+                padding: 12px;
                 border-bottom: 1px solid #333;
             }}
             QListWidget::item:selected {{
@@ -940,8 +962,8 @@ class GateWiseUI(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         self.blackout_screen.setLayout(layout)
 
-        title = QLabel("📅 BLACKOUT SCHEDULE")
-        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title = QLabel("BLACKOUT SCHEDULE")
+        title_font = QFont("Roboto Condensed", 28, QFont.Bold)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
@@ -1144,8 +1166,8 @@ class GateWiseUI(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         self.user_screen.setLayout(layout)
 
-        title = QLabel("👥 USER MAINTENANCE")
-        title_font = QFont("Roboto Condensed", 20, QFont.Bold)
+        title = QLabel("USER MAINTENANCE")
+        title_font = QFont("Roboto Condensed", 28, QFont.Bold)
         title.setFont(title_font)
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(f"color: {self.COLOR_TEXT}; margin-bottom: 10px;")
